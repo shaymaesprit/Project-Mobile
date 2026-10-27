@@ -15,27 +15,36 @@ class CalendarScreen extends StatelessWidget {
     final modes = ['Day', 'Week', 'Month'];
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Calendar', style: Theme.of(context).textTheme.titleLarge),
               IconButton(onPressed: onAdd, icon: const Icon(Icons.add_rounded)),
             ]),
-            const SizedBox(height: 12),
-            ToggleButtons(
+          ),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: ToggleButtons(
               isSelected: modes.map((value) => value == mode).toList(),
               constraints: const BoxConstraints(minWidth: 88, minHeight: 38),
               borderRadius: BorderRadius.circular(12),
               onPressed: (index) => onMode(modes[index]),
               children: modes.map((value) => Text(value)).toList(),
             ),
-            const SizedBox(height: 18),
-            Expanded(
-              child: ListView.separated(
-                itemCount: events.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (_, index) {
+          ),
+          const SizedBox(height: 18),
+          Expanded(
+            child: events.isEmpty
+                ? const Center(
+                    child: Text('No events scheduled.',
+                        style: TextStyle(color: Color(0xFF64748B))))
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    itemCount: events.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, index) {
                   final event = events[index];
                   return Container(
                     padding: const EdgeInsets.all(14),
@@ -47,11 +56,10 @@ class CalendarScreen extends StatelessWidget {
                       PopupMenuButton<String>(itemBuilder: (_) => const [PopupMenuItem(value: 'edit', child: Text('Edit')), PopupMenuItem(value: 'delete', child: Text('Delete'))], onSelected: (value) { if (value == 'edit') onEdit(event); if (value == 'delete') onDelete(event); }),
                     ]),
                   );
-                },
-              ),
-            ),
-          ]),
-        ),
+                    },
+                  ),
+          ),
+        ]),
       ),
     );
   }

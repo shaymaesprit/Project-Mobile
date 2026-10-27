@@ -25,17 +25,21 @@ class TasksScreen extends StatelessWidget {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Tasks', style: Theme.of(context).textTheme.titleLarge),
               IconButton(onPressed: onAdd, icon: const Icon(Icons.add_rounded)),
             ]),
-            const SizedBox(height: 12),
-            SingleChildScrollView(
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 48,
+            child: ListView(
               scrollDirection: Axis.horizontal,
-              child: Row(children: ['All', 'To Do', 'In Progress', 'Completed'].map((item) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              children: ['All', 'To Do', 'In Progress', 'Completed'].map((item) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: ChoiceChip(
                   label: Text(item),
@@ -44,13 +48,20 @@ class TasksScreen extends StatelessWidget {
                   selectedColor: const Color(0xFF006D77),
                   labelStyle: TextStyle(color: filter == item ? Colors.white : const Color(0xFF1E293B)),
                 ),
-              )).toList()),
+              )).toList(),
             ),
-            const SizedBox(height: 14),
-            Expanded(child: ListView.separated(
-              itemCount: visible.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 10),
-              itemBuilder: (_, index) {
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: visible.isEmpty
+                ? const Center(
+                    child: Text('No tasks found.',
+                        style: TextStyle(color: Color(0xFF64748B))))
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    itemCount: visible.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (_, index) {
                 final task = visible[index];
                 return Container(
                   padding: const EdgeInsets.all(14),
@@ -77,9 +88,9 @@ class TasksScreen extends StatelessWidget {
                   ]),
                 );
               },
-            )),
-          ]),
-        ),
+            ),
+          ),
+        ]),
       ),
     );
   }

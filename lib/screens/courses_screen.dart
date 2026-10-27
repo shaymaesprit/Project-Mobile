@@ -12,19 +12,25 @@ class CoursesScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Courses', style: Theme.of(context).textTheme.titleLarge),
               IconButton(onPressed: onAdd, icon: const Icon(Icons.add_rounded)),
             ]),
-            const SizedBox(height: 16),
-            Expanded(
-              child: ListView.separated(
-                itemCount: courses.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (_, index) {
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: courses.isEmpty
+                ? const Center(
+                    child: Text('No courses yet. Add your first course!',
+                        style: TextStyle(color: Color(0xFF64748B))))
+                : ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                    itemCount: courses.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 12),
+                    itemBuilder: (_, index) {
                   final course = courses[index];
                   return Container(
                     padding: const EdgeInsets.all(16),
@@ -48,11 +54,10 @@ class CoursesScreen extends StatelessWidget {
                       Text('${course.start} - ${course.end} • ${course.semester}', style: const TextStyle(color: Color(0xFF64748B))),
                     ]),
                   );
-                },
-              ),
-            ),
-          ]),
-        ),
+                    },
+                  ),
+          ),
+        ]),
       ),
     );
   }
