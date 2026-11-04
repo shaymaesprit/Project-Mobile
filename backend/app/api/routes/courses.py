@@ -12,6 +12,14 @@ from app.services.course_service import CourseService
 router = APIRouter()
 
 
+@router.get("/schedule", response_model=list[CourseResponse])
+def read_weekly_schedule(
+    service: CourseService = Depends(get_course_service),
+    user: User = Depends(get_current_user),
+) -> list[Course]:
+    return service.list_schedule(user.firebase_uid)
+
+
 @router.get("", response_model=list[CourseResponse])
 def list_courses(
     service: CourseService = Depends(get_course_service),

@@ -20,3 +20,8 @@ class InvalidReferenceError(StudyMateError):
 class InvalidResourceStateError(StudyMateError):
     status_code = 422
     code = "invalid_resource_state"
+
+
+class CourseScheduleConflictError(StudyMateError):
+    status_code = 409
+    code = "course_schedule_conflict"

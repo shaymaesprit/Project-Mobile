@@ -93,23 +93,82 @@ class StudyMateApi {
     return response.map((item) => StudyCourse.fromJson(_asJson(item))).toList();
   }
 
+  Future<List<StudyCourse>> getWeeklySchedule() async {
+    final response = await _get<List<dynamic>>('/courses/schedule');
+    return response.map((item) => StudyCourse.fromJson(_asJson(item))).toList();
+  }
+
   Future<StudyCourse> createCourse({
     required String title,
     String? code,
     String? professor,
     String? room,
+    int? weekday,
+    String? startTime,
+    String? endTime,
   }) async {
     final response = await _post<Map<String, dynamic>>(
       '/courses',
-      data: {
+      data: _coursePayload(
+        title: title,
+        code: code,
+        professor: professor,
+        room: room,
+        weekday: weekday,
+        startTime: startTime,
+        endTime: endTime,
+      ),
+    );
+    return StudyCourse.fromJson(response);
+  }
+
+  Future<StudyCourse> updateCourse({
+    required StudyCourse course,
+    required String title,
+    String? code,
+    String? professor,
+    String? room,
+    int? weekday,
+    String? startTime,
+    String? endTime,
+  }) async {
+    final response = await _put<Map<String, dynamic>>(
+      '/courses/${course.id}',
+      data: _coursePayload(
+        title: title,
+        code: code,
+        professor: professor,
+        room: room,
+        weekday: weekday,
+        startTime: startTime,
+        endTime: endTime,
+      ),
+    );
+    return StudyCourse.fromJson(response);
+  }
+
+  Future<void> deleteCourse(String id) async {
+    await _delete('/courses/$id');
+  }
+
+  Map<String, dynamic> _coursePayload({
+    required String title,
+    String? code,
+    String? professor,
+    String? room,
+    int? weekday,
+    String? startTime,
+    String? endTime,
+  }) =>
+      {
         'title': title,
         'code': code,
         'professor': professor,
         'room': room,
-      },
-    );
-    return StudyCourse.fromJson(response);
-  }
+        'weekday': weekday,
+        'start_time': startTime,
+        'end_time': endTime,
+      };
 
   Future<StudyTask> createTask(StudyTask task) async {
     final response = await _post<Map<String, dynamic>>(

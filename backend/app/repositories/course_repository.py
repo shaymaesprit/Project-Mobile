@@ -1,3 +1,4 @@
+from datetime import time
 from uuid import UUID
 
 from sqlalchemy import select
@@ -18,6 +19,36 @@ class CourseRepository:
                 .order_by(Course.title)
             )
         )
+
+    def list_schedule_for_owner(self, owner_uid: str) -> list[Course]:
+        return list(
+            self._db.scalars(
+                select(Course)
+                .where(
+                    Course.owner_uid == owner_uid,
+                    Course.weekday.is_not(None),
+                )
+                .order_by(Course.weekday, Course.start_time, Course.title)
+            )
+        )
+
+    def has_schedule_conflict(
+        self,
+        owner_uid: str,
+        weekday: int,
+        start_time: time,
+        end_time: time,
+        exclude_course_id: UUID | None = None,
+    ) -> bool:
+        statement = select(Course.id).where(
+            Course.owner_uid == owner_uid,
+            Course.weekday == weekday,
+            Course.start_time < end_time,
+            Course.end_time > start_time,
+        )
+        if exclude_course_id is not None:
+            statement = statement.where(Course.id != exclude_course_id)
+        return self._db.scalar(statement.limit(1)) is not None
 
     def get_for_owner(self, course_id: UUID, owner_uid: str) -> Course | None:
         return self._db.scalar(

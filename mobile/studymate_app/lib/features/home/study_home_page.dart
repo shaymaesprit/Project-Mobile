@@ -5,6 +5,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import '../../data/models/study_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
+import '../courses/course_management_page.dart';
 import '../profile/profile_page.dart';
 
 class StudyHomePage extends StatefulWidget {
@@ -564,27 +565,9 @@ class _StudyHomePageState extends State<StudyHomePage> {
         ],
       );
 
-  Widget _buildCoursesPage() => RefreshIndicator(
+  Widget _buildCoursesPage() => CourseManagementPage(
+        controller: widget.controller,
         onRefresh: _refresh,
-        child: _pageList([
-          _pageHeading(
-            'Mes cours',
-            'Retrouve les matières que tu étudies.',
-          ),
-          const SizedBox(height: 16),
-          if (widget.controller.courses.isEmpty)
-            _emptyCard(
-              icon: Icons.school_outlined,
-              title: 'Aucun cours enregistré',
-              action: 'Ajouter un cours',
-              onPressed: _addCourse,
-            )
-          else
-            for (final course in widget.controller.courses) ...[
-              _courseCard(course),
-              const SizedBox(height: 10),
-            ],
-        ]),
       );
 
   Widget _buildTasksPage() {

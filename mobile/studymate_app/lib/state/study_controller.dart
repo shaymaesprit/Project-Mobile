@@ -12,6 +12,7 @@ class StudyController extends ChangeNotifier {
   final StudyMateApi _api;
 
   List<StudyCourse> _courses = const [];
+  List<StudyCourse> _weeklySchedule = const [];
   List<StudyTask> _tasks = const [];
   List<StudyNote> _notes = const [];
 
@@ -25,6 +26,7 @@ class StudyController extends ChangeNotifier {
   DateTime? _lastSyncedAt;
 
   List<StudyCourse> get courses => List.unmodifiable(_courses);
+  List<StudyCourse> get weeklySchedule => List.unmodifiable(_weeklySchedule);
   List<StudyTask> get tasks => List.unmodifiable(_tasks);
   List<StudyNote> get notes => List.unmodifiable(_notes);
   bool get isLoading => _isLoading;
@@ -113,6 +115,7 @@ class StudyController extends ChangeNotifier {
     _userProfile = null;
     _studentProfile = null;
     _courses = const [];
+    _weeklySchedule = const [];
     _tasks = const [];
     _notes = const [];
     notifyListeners();
@@ -122,14 +125,16 @@ class StudyController extends ChangeNotifier {
       _userProfile = await _api.getCurrentUser();
       final results = await Future.wait([
         _api.getCourses(),
+        _api.getWeeklySchedule(),
         _api.getTasks(),
         _api.getNotes(),
         _api.getStudentProfile(),
       ]);
       _courses = results[0] as List<StudyCourse>;
-      _tasks = results[1] as List<StudyTask>;
-      _notes = results[2] as List<StudyNote>;
-      _studentProfile = results[3] as StudentProfile;
+      _weeklySchedule = results[1] as List<StudyCourse>;
+      _tasks = results[2] as List<StudyTask>;
+      _notes = results[3] as List<StudyNote>;
+      _studentProfile = results[4] as StudentProfile;
       _lastSyncedAt = DateTime.now();
     } on StudyMateApiException catch (error) {
       _errorMessage = error.message;
@@ -182,6 +187,9 @@ class StudyController extends ChangeNotifier {
     String? code,
     String? professor,
     String? room,
+    int? weekday,
+    String? startTime,
+    String? endTime,
   }) async {
     _requireBackendSession();
     try {
@@ -190,8 +198,62 @@ class StudyController extends ChangeNotifier {
         code: code,
         professor: professor,
         room: room,
+        weekday: weekday,
+        startTime: startTime,
+        endTime: endTime,
       );
       _courses = [course, ..._courses];
+      await _refreshWeeklySchedule();
+      _clearError();
+    } on StudyMateApiException catch (error) {
+      _setError(error);
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> updateCourse({
+    required StudyCourse course,
+    required String title,
+    String? code,
+    String? professor,
+    String? room,
+    int? weekday,
+    String? startTime,
+    String? endTime,
+  }) async {
+    _requireBackendSession();
+    try {
+      final saved = await _api.updateCourse(
+        course: course,
+        title: title,
+        code: code,
+        professor: professor,
+        room: room,
+        weekday: weekday,
+        startTime: startTime,
+        endTime: endTime,
+      );
+      _courses = [
+        for (final item in _courses)
+          if (item.id == saved.id) saved else item,
+      ];
+      await _refreshWeeklySchedule();
+      _clearError();
+    } on StudyMateApiException catch (error) {
+      _setError(error);
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> deleteCourse(StudyCourse course) async {
+    _requireBackendSession();
+    try {
+      await _api.deleteCourse(course.id);
+      _courses = _courses.where((item) => item.id != course.id).toList();
+      _weeklySchedule =
+          _weeklySchedule.where((item) => item.id != course.id).toList();
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -243,6 +305,7 @@ class StudyController extends ChangeNotifier {
     _userProfile = null;
     _studentProfile = null;
     _courses = const [];
+    _weeklySchedule = const [];
     _tasks = const [];
     _notes = const [];
     notifyListeners();
@@ -261,6 +324,10 @@ class StudyController extends ChangeNotifier {
     next[index] = value;
     _tasks = next;
     notifyListeners();
+  }
+
+  Future<void> _refreshWeeklySchedule() async {
+    _weeklySchedule = await _api.getWeeklySchedule();
   }
 
   void _setError(StudyMateApiException error) {

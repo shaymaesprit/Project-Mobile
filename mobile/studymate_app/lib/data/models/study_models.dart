@@ -70,6 +70,9 @@ class StudyCourse {
     this.code,
     this.professor,
     this.room,
+    this.weekday,
+    this.startTime,
+    this.endTime,
   });
 
   final String id;
@@ -77,6 +80,9 @@ class StudyCourse {
   final String? code;
   final String? professor;
   final String? room;
+  final int? weekday;
+  final String? startTime;
+  final String? endTime;
 
   factory StudyCourse.fromJson(Map<String, dynamic> json) => StudyCourse(
         id: json['id'] as String,
@@ -84,6 +90,9 @@ class StudyCourse {
         code: json['code'] as String?,
         professor: json['professor'] as String?,
         room: json['room'] as String?,
+        weekday: json['weekday'] as int?,
+        startTime: json['start_time'] as String?,
+        endTime: json['end_time'] as String?,
       );
 }
 

@@ -194,6 +194,15 @@ Deleting `/api/v1/users/me` deletes the Firebase account and the associated
 database records. Notifications are listed with `limit`/`offset` pagination
 and marked read through `PUT /api/v1/notifications/{id}/read`.
 
+Courses are private to the authenticated student and support `GET`, `POST`,
+`PUT`/`PATCH`, and `DELETE` at `/api/v1/courses`. Optional weekly schedule
+fields are `weekday` (ISO-style, Monday `0` through Sunday `6`),
+`start_time`, and `end_time` (local `HH:MM`); provide all three or none.
+`GET /api/v1/courses/schedule` lists scheduled courses for the current
+student. Overlapping courses on the same weekday return HTTP 409, while
+adjacent time intervals are allowed. The Flutter Courses page offers course
+details, create/edit/delete actions, and a weekday-filtered timetable.
+
 ## Tests
 
 Flutter checks (from `mobile\studymate_app`):

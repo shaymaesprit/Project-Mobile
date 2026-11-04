@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -22,6 +22,9 @@ class CourseRead(ApiSchema):
     professor: str | None
     room: str | None
     color: str | None = None
+    weekday: int | None
+    start_time: time | None
+    end_time: time | None
     created_at: datetime
     updated_at: datetime
 
