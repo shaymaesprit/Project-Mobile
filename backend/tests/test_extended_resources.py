@@ -3,7 +3,7 @@ from uuid import uuid4
 from app.api.deps import get_current_uid
 from app.main import app
 from app.models.course import Course
-from app.models.extended import Flashcard, Notification
+from app.models.extended import Flashcard, FlashcardDeck, Notification
 from app.models.user import User
 
 
@@ -197,12 +197,121 @@ def test_flashcard_crud_and_course_ownership(client, db_session):
     assert client.get(f"/api/v1/flashcards/{foreign_card.id}").status_code == 404
 
 
+def test_flashcard_deck_crud_review_and_progress(client, db_session):
+    course = client.post(
+        "/api/v1/courses",
+        json={"title": "Biology"},
+    )
+    assert course.status_code == 201
+
+    deck = client.post(
+        "/api/v1/flashcard-decks",
+        json={
+            "title": "  Cell structures ",
+            "description": "Review organelles",
+            "course_id": course.json()["id"],
+        },
+    )
+    assert deck.status_code == 201
+    deck_id = deck.json()["id"]
+    assert deck.json()["title"] == "Cell structures"
+    assert deck.json()["source"] == "manual"
+
+    response = client.post(
+        f"/api/v1/flashcard-decks/{deck_id}/cards",
+        json={"question": "What is a mitochondrion?", "answer": "An organelle"},
+    )
+    assert response.status_code == 201
+    card_id = response.json()["id"]
+    assert response.json()["deck_id"] == deck_id
+    assert response.json()["course_id"] == course.json()["id"]
+
+    response = client.put(
+        f"/api/v1/flashcards/{card_id}",
+        json={"answer": "An energy-producing organelle"},
+    )
+    assert response.status_code == 200
+    assert response.json()["answer"] == "An energy-producing organelle"
+
+    response = client.post(
+        f"/api/v1/flashcards/{card_id}/review",
+        json={"is_correct": True},
+    )
+    assert response.status_code == 200
+    assert response.json()["total_reviews"] == 1
+    assert response.json()["correct_answers"] == 1
+    assert response.json()["flashcard"]["repetitions"] == 1
+
+    response = client.post(
+        f"/api/v1/flashcards/{card_id}/review",
+        json={"is_correct": False},
+    )
+    assert response.status_code == 200
+    assert response.json()["incorrect_answers"] == 1
+    assert response.json()["flashcard"]["repetitions"] == 0
+
+    progress = client.get(f"/api/v1/flashcard-decks/{deck_id}/progress")
+    assert progress.status_code == 200
+    assert progress.json()["total_cards"] == 1
+    assert progress.json()["reviewed_cards"] == 1
+    assert progress.json()["total_reviews"] == 2
+    assert progress.json()["accuracy_rate"] == 50
+
+    response = client.put(
+        f"/api/v1/flashcard-decks/{deck_id}",
+        json={"title": "Cell biology"},
+    )
+    assert response.status_code == 200
+    assert response.json()["title"] == "Cell biology"
+    assert client.get(f"/api/v1/flashcard-decks/{deck_id}/cards").status_code == 200
+    assert client.delete(f"/api/v1/flashcards/{card_id}").status_code == 204
+    assert client.delete(f"/api/v1/flashcard-decks/{deck_id}").status_code == 204
+
+
+def test_flashcard_deck_and_review_are_owner_scoped(client, db_session):
+    foreign_owner = User(firebase_uid="firebase-user-b")
+    foreign_deck = FlashcardDeck(
+        owner_uid=foreign_owner.firebase_uid,
+        title="Private deck",
+    )
+    db_session.add_all([foreign_owner, foreign_deck])
+    db_session.flush()
+    foreign_card = Flashcard(
+        owner_uid=foreign_owner.firebase_uid,
+        deck_id=foreign_deck.id,
+        question="Private",
+        answer="Only for another account",
+    )
+    db_session.add(foreign_card)
+    db_session.commit()
+
+    assert client.get(f"/api/v1/flashcard-decks/{foreign_deck.id}").status_code == 404
+    assert (
+        client.get(f"/api/v1/flashcard-decks/{foreign_deck.id}/cards").status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"/api/v1/flashcards/{foreign_card.id}/review",
+            json={"is_correct": True},
+        ).status_code
+        == 404
+    )
+
+
 def test_evaluation_crud_and_grade_validation(client):
     invalid = client.post(
         "/api/v1/evaluations",
         json={"title": "Exam", "score": 11, "max_score": 10},
     )
     assert invalid.status_code == 422
+    assert (
+        client.post(
+            "/api/v1/evaluations",
+            json={"title": "Missing maximum", "score": 8},
+        ).status_code
+        == 422
+    )
 
     response = client.post(
         "/api/v1/evaluations",
@@ -225,6 +334,42 @@ def test_evaluation_crud_and_grade_validation(client):
     assert client.get(f"/api/v1/evaluations/{evaluation_id}").status_code == 200
     assert client.get("/api/v1/evaluations").status_code == 200
     assert client.delete(f"/api/v1/evaluations/{evaluation_id}").status_code == 204
+
+
+def test_evaluation_summary_calculates_averages_and_trend(client):
+    course = client.post("/api/v1/courses", json={"title": "Mathematics"})
+    assert course.status_code == 201
+    course_id = course.json()["id"]
+    client.post(
+        "/api/v1/evaluations",
+        json={
+            "title": "Quiz 1",
+            "course_id": course_id,
+            "score": 8,
+            "max_score": 10,
+            "scheduled_at": "2026-10-01T10:00:00Z",
+        },
+    )
+    client.post(
+        "/api/v1/evaluations",
+        json={
+            "title": "Quiz 2",
+            "course_id": course_id,
+            "score": 15,
+            "max_score": 20,
+            "scheduled_at": "2026-11-01T10:00:00Z",
+        },
+    )
+    client.post("/api/v1/evaluations", json={"title": "Not graded yet"})
+
+    response = client.get("/api/v1/evaluations/summary")
+    assert response.status_code == 200
+    summary = response.json()
+    assert summary["graded_count"] == 2
+    assert summary["average_percentage"] == 77.5
+    assert summary["course_averages"][0]["course_id"] == course_id
+    assert summary["course_averages"][0]["evaluation_count"] == 2
+    assert [point["title"] for point in summary["trend"]] == ["Quiz 1", "Quiz 2"]
 
 
 def test_event_crud_and_timezone_validation(client):

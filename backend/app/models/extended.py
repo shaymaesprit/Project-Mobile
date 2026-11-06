@@ -85,6 +85,36 @@ class LearningProfile(Base):
     )
 
 
+class FlashcardDeck(Base):
+    __tablename__ = "flashcard_decks"
+    __table_args__ = (
+        UniqueConstraint("owner_uid", "id", name="uq_flashcard_decks_owner_id"),
+        _course_owner_fk("flashcard_decks"),
+        CheckConstraint(
+            "source IN ('manual', 'ai_generated')",
+            name="ck_flashcard_decks_source",
+        ),
+        Index("ix_flashcard_decks_owner_created", "owner_uid", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_uid: Mapped[str] = mapped_column(
+        ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False
+    )
+    course_id: Mapped[UUID | None] = mapped_column()
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="manual", server_default=text("'manual'")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class Flashcard(Base):
     __tablename__ = "flashcards"
     __table_args__ = (
@@ -93,13 +123,21 @@ class Flashcard(Base):
         CheckConstraint("repetitions >= 0", name="ck_flashcards_repetitions"),
         UniqueConstraint("owner_uid", "id", name="uq_flashcards_owner_id"),
         _course_owner_fk("flashcards"),
+        ForeignKeyConstraint(
+            ["owner_uid", "deck_id"],
+            ["flashcard_decks.owner_uid", "flashcard_decks.id"],
+            name="fk_flashcards_deck_owner",
+            ondelete="CASCADE",
+        ),
         Index("ix_flashcards_owner_due", "owner_uid", "due_at"),
+        Index("ix_flashcards_owner_deck", "owner_uid", "deck_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     owner_uid: Mapped[str] = mapped_column(
         ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False
     )
+    deck_id: Mapped[UUID | None] = mapped_column()
     course_id: Mapped[UUID | None] = mapped_column()
     question: Mapped[str] = mapped_column(Text, nullable=False)
     answer: Mapped[str] = mapped_column(Text, nullable=False)
@@ -117,6 +155,30 @@ class Flashcard(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class FlashcardReview(Base):
+    __tablename__ = "flashcard_reviews"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["owner_uid", "flashcard_id"],
+            ["flashcards.owner_uid", "flashcards.id"],
+            name="fk_flashcard_reviews_card_owner",
+            ondelete="CASCADE",
+        ),
+        Index("ix_flashcard_reviews_owner_reviewed", "owner_uid", "reviewed_at"),
+        Index("ix_flashcard_reviews_owner_card", "owner_uid", "flashcard_id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_uid: Mapped[str] = mapped_column(
+        ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False
+    )
+    flashcard_id: Mapped[UUID] = mapped_column(nullable=False)
+    is_correct: Mapped[bool] = mapped_column(nullable=False)
+    reviewed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 

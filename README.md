@@ -203,6 +203,24 @@ student. Overlapping courses on the same weekday return HTTP 409, while
 adjacent time intervals are allowed. The Flutter Courses page offers course
 details, create/edit/delete actions, and a weekday-filtered timetable.
 
+Flashcard decks support private CRUD at `/api/v1/flashcard-decks`. Associate a
+deck with a course, add or list its cards at
+`/api/v1/flashcard-decks/{deck_id}/cards`, and review an answer with
+`POST /api/v1/flashcards/{id}/review` and `{"is_correct": true|false}`.
+Review history is retained per card; `/api/v1/flashcard-decks/{deck_id}/progress`
+returns correct/incorrect counts, accuracy, reviewed cards, and mastered cards.
+Cards keep their spaced-repetition schedule as well as their review history.
+Deck provenance distinguishes manual cards from future AI-generated decks;
+generation itself is not enabled yet, and generated content can use the same
+ownership, editing, and review flow.
+
+Evaluations support private CRUD at `/api/v1/evaluations`, with an optional
+course, type, scheduled date, score, maximum score, and notes. Scores cannot
+exceed their maximum. `GET /api/v1/evaluations/summary` returns the average
+percentage for graded evaluations, per-course averages, and dated results for
+the Flutter progress chart. Both study-resource modules are exposed in the
+Flutter **Réviser** section and synchronized with the authenticated API.
+
 ## Tests
 
 Flutter checks (from `mobile\studymate_app`):

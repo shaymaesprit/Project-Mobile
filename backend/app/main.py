@@ -19,7 +19,8 @@ logger = logging.getLogger("studymate.api")
 app = FastAPI(
     title=settings.app_name,
     description=(
-        "StudyMate API for student courses, tasks, notes, and study resources. "
+        "StudyMate API for student courses, tasks, notes, flashcards, and "
+        "evaluations. "
         "Protected resources require a Firebase ID token."
     ),
     version=settings.app_version,
@@ -33,6 +34,9 @@ app = FastAPI(
         {"name": "courses", "description": "User-owned courses."},
         {"name": "tasks", "description": "User-owned study tasks."},
         {"name": "notes", "description": "User-owned study notes."},
+        {"name": "flashcards", "description": "User-owned flashcards and review history."},
+        {"name": "flashcard decks", "description": "User-owned flashcard sets."},
+        {"name": "evaluations", "description": "User-owned grades and progress."},
     ],
 )
 

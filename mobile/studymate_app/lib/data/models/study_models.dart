@@ -177,3 +177,279 @@ class StudyNote {
         'course_id': courseId,
       };
 }
+
+class StudyFlashcardDeck {
+  const StudyFlashcardDeck({
+    required this.id,
+    required this.title,
+    required this.source,
+    required this.createdAt,
+    required this.updatedAt,
+    this.description,
+    this.courseId,
+  });
+
+  final String id;
+  final String title;
+  final String? description;
+  final String? courseId;
+  final String source;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  factory StudyFlashcardDeck.fromJson(Map<String, dynamic> json) =>
+      StudyFlashcardDeck(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        description: json['description'] as String?,
+        courseId: json['course_id'] as String?,
+        source: json['source'] as String? ?? 'manual',
+        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+        updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'description': description,
+        'course_id': courseId,
+      };
+}
+
+class StudyFlashcard {
+  const StudyFlashcard({
+    required this.id,
+    required this.question,
+    required this.answer,
+    required this.repetitions,
+    required this.intervalDays,
+    required this.easeFactor,
+    this.deckId,
+    this.courseId,
+    this.dueAt,
+  });
+
+  final String id;
+  final String? deckId;
+  final String? courseId;
+  final String question;
+  final String answer;
+  final DateTime? dueAt;
+  final int repetitions;
+  final int intervalDays;
+  final double easeFactor;
+
+  factory StudyFlashcard.fromJson(Map<String, dynamic> json) => StudyFlashcard(
+        id: json['id'] as String,
+        deckId: json['deck_id'] as String?,
+        courseId: json['course_id'] as String?,
+        question: json['question'] as String,
+        answer: json['answer'] as String,
+        dueAt: json['due_at'] == null
+            ? null
+            : DateTime.parse(json['due_at'] as String).toLocal(),
+        repetitions: json['repetitions'] as int? ?? 0,
+        intervalDays: json['interval_days'] as int? ?? 0,
+        easeFactor: (json['ease_factor'] as num?)?.toDouble() ?? 2.5,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'question': question,
+        'answer': answer,
+        'deck_id': deckId,
+        'course_id': courseId,
+      };
+}
+
+class StudyFlashcardDeckProgress {
+  const StudyFlashcardDeckProgress({
+    required this.deckId,
+    required this.totalCards,
+    required this.reviewedCards,
+    required this.masteredCards,
+    required this.totalReviews,
+    required this.correctAnswers,
+    required this.incorrectAnswers,
+    this.accuracyRate,
+  });
+
+  final String deckId;
+  final int totalCards;
+  final int reviewedCards;
+  final int masteredCards;
+  final int totalReviews;
+  final int correctAnswers;
+  final int incorrectAnswers;
+  final double? accuracyRate;
+
+  factory StudyFlashcardDeckProgress.fromJson(Map<String, dynamic> json) =>
+      StudyFlashcardDeckProgress(
+        deckId: json['deck_id'] as String,
+        totalCards: json['total_cards'] as int,
+        reviewedCards: json['reviewed_cards'] as int,
+        masteredCards: json['mastered_cards'] as int,
+        totalReviews: json['total_reviews'] as int,
+        correctAnswers: json['correct_answers'] as int,
+        incorrectAnswers: json['incorrect_answers'] as int,
+        accuracyRate: (json['accuracy_rate'] as num?)?.toDouble(),
+      );
+}
+
+class StudyFlashcardReviewResult {
+  const StudyFlashcardReviewResult({
+    required this.flashcard,
+    required this.totalReviews,
+    required this.correctAnswers,
+    required this.incorrectAnswers,
+    this.accuracyRate,
+  });
+
+  final StudyFlashcard flashcard;
+  final int totalReviews;
+  final int correctAnswers;
+  final int incorrectAnswers;
+  final double? accuracyRate;
+
+  factory StudyFlashcardReviewResult.fromJson(Map<String, dynamic> json) =>
+      StudyFlashcardReviewResult(
+        flashcard: StudyFlashcard.fromJson(
+          json['flashcard'] as Map<String, dynamic>,
+        ),
+        totalReviews: json['total_reviews'] as int,
+        correctAnswers: json['correct_answers'] as int,
+        incorrectAnswers: json['incorrect_answers'] as int,
+        accuracyRate: (json['accuracy_rate'] as num?)?.toDouble(),
+      );
+}
+
+class StudyEvaluation {
+  const StudyEvaluation({
+    required this.id,
+    required this.title,
+    required this.evaluationType,
+    required this.createdAt,
+    required this.updatedAt,
+    this.courseId,
+    this.scheduledAt,
+    this.score,
+    this.maxScore,
+    this.notes,
+  });
+
+  final String id;
+  final String title;
+  final String evaluationType;
+  final String? courseId;
+  final DateTime? scheduledAt;
+  final double? score;
+  final double? maxScore;
+  final String? notes;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  double? get percentage =>
+      score == null || maxScore == null ? null : score! / maxScore! * 100;
+
+  factory StudyEvaluation.fromJson(Map<String, dynamic> json) =>
+      StudyEvaluation(
+        id: json['id'] as String,
+        title: json['title'] as String,
+        evaluationType: json['evaluation_type'] as String? ?? 'other',
+        courseId: json['course_id'] as String?,
+        scheduledAt: json['scheduled_at'] == null
+            ? null
+            : DateTime.parse(json['scheduled_at'] as String).toLocal(),
+        score: (json['score'] as num?)?.toDouble(),
+        maxScore: (json['max_score'] as num?)?.toDouble(),
+        notes: json['notes'] as String?,
+        createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
+        updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'title': title,
+        'evaluation_type': evaluationType,
+        'course_id': courseId,
+        'scheduled_at': scheduledAt?.toUtc().toIso8601String(),
+        'score': score,
+        'max_score': maxScore,
+        'notes': notes,
+      };
+}
+
+class StudyEvaluationTrendPoint {
+  const StudyEvaluationTrendPoint({
+    required this.title,
+    required this.date,
+    required this.score,
+    required this.maxScore,
+    required this.percentage,
+  });
+
+  final String title;
+  final DateTime date;
+  final double score;
+  final double maxScore;
+  final double percentage;
+
+  factory StudyEvaluationTrendPoint.fromJson(Map<String, dynamic> json) =>
+      StudyEvaluationTrendPoint(
+        title: json['title'] as String,
+        date: DateTime.parse(json['date'] as String).toLocal(),
+        score: (json['score'] as num).toDouble(),
+        maxScore: (json['max_score'] as num).toDouble(),
+        percentage: (json['percentage'] as num).toDouble(),
+      );
+}
+
+class StudyCourseEvaluationAverage {
+  const StudyCourseEvaluationAverage({
+    required this.averagePercentage,
+    required this.evaluationCount,
+    this.courseId,
+  });
+
+  final String? courseId;
+  final double averagePercentage;
+  final int evaluationCount;
+
+  factory StudyCourseEvaluationAverage.fromJson(Map<String, dynamic> json) =>
+      StudyCourseEvaluationAverage(
+        courseId: json['course_id'] as String?,
+        averagePercentage: (json['average_percentage'] as num).toDouble(),
+        evaluationCount: json['evaluation_count'] as int,
+      );
+}
+
+class StudyEvaluationSummary {
+  const StudyEvaluationSummary({
+    required this.gradedCount,
+    required this.courseAverages,
+    required this.trend,
+    this.averagePercentage,
+  });
+
+  final int gradedCount;
+  final double? averagePercentage;
+  final List<StudyCourseEvaluationAverage> courseAverages;
+  final List<StudyEvaluationTrendPoint> trend;
+
+  factory StudyEvaluationSummary.fromJson(Map<String, dynamic> json) =>
+      StudyEvaluationSummary(
+        gradedCount: json['graded_count'] as int,
+        averagePercentage: (json['average_percentage'] as num?)?.toDouble(),
+        courseAverages: (json['course_averages'] as List<dynamic>)
+            .map(
+              (item) => StudyCourseEvaluationAverage.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList(growable: false),
+        trend: (json['trend'] as List<dynamic>)
+            .map(
+              (item) => StudyEvaluationTrendPoint.fromJson(
+                item as Map<String, dynamic>,
+              ),
+            )
+            .toList(growable: false),
+      );
+}

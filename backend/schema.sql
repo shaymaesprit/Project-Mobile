@@ -110,10 +110,27 @@ CREATE TABLE IF NOT EXISTS learning_profiles (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS flashcard_decks (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_uid varchar(128) NOT NULL
+        REFERENCES users(firebase_uid) ON DELETE CASCADE,
+    course_id uuid,
+    title varchar(200) NOT NULL,
+    description text,
+    source varchar(24) NOT NULL DEFAULT 'manual'
+        CHECK (source IN ('manual', 'ai_generated')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT uq_flashcard_decks_owner_id UNIQUE (owner_uid, id),
+    CONSTRAINT fk_flashcard_decks_course_owner FOREIGN KEY (owner_uid, course_id)
+        REFERENCES courses(owner_uid, id) ON DELETE SET NULL (course_id)
+);
+
 CREATE TABLE IF NOT EXISTS flashcards (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_uid varchar(128) NOT NULL
         REFERENCES users(firebase_uid) ON DELETE CASCADE,
+    deck_id uuid,
     course_id uuid,
     question text NOT NULL,
     answer text NOT NULL,
@@ -125,8 +142,22 @@ CREATE TABLE IF NOT EXISTS flashcards (
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CONSTRAINT uq_flashcards_owner_id UNIQUE (owner_uid, id),
+    CONSTRAINT fk_flashcards_deck_owner FOREIGN KEY (owner_uid, deck_id)
+        REFERENCES flashcard_decks(owner_uid, id) ON DELETE CASCADE,
     CONSTRAINT fk_flashcards_course_owner FOREIGN KEY (owner_uid, course_id)
         REFERENCES courses(owner_uid, id) ON DELETE SET NULL (course_id)
+);
+
+CREATE TABLE IF NOT EXISTS flashcard_reviews (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_uid varchar(128) NOT NULL
+        REFERENCES users(firebase_uid) ON DELETE CASCADE,
+    flashcard_id uuid NOT NULL,
+    is_correct boolean NOT NULL,
+    reviewed_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT fk_flashcard_reviews_card_owner
+        FOREIGN KEY (owner_uid, flashcard_id)
+        REFERENCES flashcards(owner_uid, id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS evaluations (
@@ -370,6 +401,14 @@ CREATE INDEX IF NOT EXISTS ix_flashcards_owner_due
     ON flashcards (owner_uid, due_at);
 CREATE INDEX IF NOT EXISTS ix_flashcards_owner_course
     ON flashcards (owner_uid, course_id);
+CREATE INDEX IF NOT EXISTS ix_flashcard_decks_owner_created
+    ON flashcard_decks (owner_uid, created_at);
+CREATE INDEX IF NOT EXISTS ix_flashcards_owner_deck
+    ON flashcards (owner_uid, deck_id);
+CREATE INDEX IF NOT EXISTS ix_flashcard_reviews_owner_reviewed
+    ON flashcard_reviews (owner_uid, reviewed_at);
+CREATE INDEX IF NOT EXISTS ix_flashcard_reviews_owner_card
+    ON flashcard_reviews (owner_uid, flashcard_id);
 CREATE INDEX IF NOT EXISTS ix_evaluations_owner_scheduled
     ON evaluations (owner_uid, scheduled_at);
 CREATE INDEX IF NOT EXISTS ix_evaluations_owner_course
@@ -404,7 +443,8 @@ DECLARE
 BEGIN
     FOREACH table_name IN ARRAY ARRAY[
         'users', 'learning_profiles', 'courses', 'tasks', 'notes',
-        'flashcards', 'evaluations', 'events', 'notifications',
+        'flashcards', 'flashcard_decks', 'flashcard_reviews',
+        'evaluations', 'events', 'notifications',
         'study_sessions', 'gamification', 'ai_insights',
         'notification_devices', 'documents', 'document_chunks',
         'chunk_embeddings'

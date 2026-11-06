@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database.session import get_db
-from app.models.extended import Evaluation, Flashcard, StudyEvent
+from app.models.extended import Evaluation, FlashcardDeck, StudyEvent
 from app.models.user import User
 from app.repositories.course_repository import CourseRepository
 from app.repositories.health_repository import HealthRepository
@@ -17,9 +17,11 @@ from app.services.task_service import TaskService
 from app.services.user_service import UserService
 from app.repositories.profile_repository import ProfileRepository
 from app.repositories.notification_repository import NotificationRepository
+from app.repositories.flashcard_repository import FlashcardRepository
 from app.services.profile_service import ProfileService
 from app.services.evaluation_service import EvaluationService
 from app.services.event_service import EventService
+from app.services.flashcard_service import FlashcardService
 from app.services.notification_service import NotificationService
 from app.services.owned_resource_service import OwnedResourceService
 
@@ -66,13 +68,21 @@ def _owned_resource_service(
     return OwnedResourceService(OwnedResourceRepository(db, model), label)
 
 
-def get_flashcard_service(
+def get_flashcard_deck_service(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> OwnedResourceService:
     return _owned_resource_service(
-        db, Flashcard, "Flashcard", user.firebase_uid
+        db, FlashcardDeck, "Flashcard deck", user.firebase_uid
     )
+
+
+def get_flashcard_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> FlashcardService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return FlashcardService(FlashcardRepository(db))
 
 
 def get_evaluation_service(

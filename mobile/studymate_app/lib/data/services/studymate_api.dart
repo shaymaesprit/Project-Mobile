@@ -212,6 +212,126 @@ class StudyMateApi {
     await _delete('/notes/$id');
   }
 
+  Future<List<StudyFlashcardDeck>> getFlashcardDecks() async {
+    final response = await _get<List<dynamic>>('/flashcard-decks');
+    return response
+        .map((item) => StudyFlashcardDeck.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<StudyFlashcardDeck> createFlashcardDeck(
+    StudyFlashcardDeck deck,
+  ) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/flashcard-decks',
+      data: deck.toJson(),
+    );
+    return StudyFlashcardDeck.fromJson(response);
+  }
+
+  Future<StudyFlashcardDeck> updateFlashcardDeck(
+    StudyFlashcardDeck deck,
+  ) async {
+    final response = await _put<Map<String, dynamic>>(
+      '/flashcard-decks/${deck.id}',
+      data: deck.toJson(),
+    );
+    return StudyFlashcardDeck.fromJson(response);
+  }
+
+  Future<void> deleteFlashcardDeck(String id) async {
+    await _delete('/flashcard-decks/$id');
+  }
+
+  Future<List<StudyFlashcard>> getFlashcards(String deckId) async {
+    final response = await _get<List<dynamic>>(
+      '/flashcard-decks/$deckId/cards',
+    );
+    return response
+        .map((item) => StudyFlashcard.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<StudyFlashcardDeckProgress> getFlashcardDeckProgress(
+    String deckId,
+  ) async {
+    final response = await _get<Map<String, dynamic>>(
+      '/flashcard-decks/$deckId/progress',
+    );
+    return StudyFlashcardDeckProgress.fromJson(response);
+  }
+
+  Future<StudyFlashcard> createFlashcard({
+    required String deckId,
+    required String question,
+    required String answer,
+  }) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/flashcard-decks/$deckId/cards',
+      data: {
+        'question': question,
+        'answer': answer,
+        'deck_id': deckId,
+      },
+    );
+    return StudyFlashcard.fromJson(response);
+  }
+
+  Future<StudyFlashcard> updateFlashcard(StudyFlashcard flashcard) async {
+    final response = await _put<Map<String, dynamic>>(
+      '/flashcards/${flashcard.id}',
+      data: flashcard.toJson(),
+    );
+    return StudyFlashcard.fromJson(response);
+  }
+
+  Future<void> deleteFlashcard(String id) async {
+    await _delete('/flashcards/$id');
+  }
+
+  Future<StudyFlashcardReviewResult> reviewFlashcard({
+    required String flashcardId,
+    required bool isCorrect,
+  }) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/flashcards/$flashcardId/review',
+      data: {'is_correct': isCorrect},
+    );
+    return StudyFlashcardReviewResult.fromJson(response);
+  }
+
+  Future<List<StudyEvaluation>> getEvaluations() async {
+    final response = await _get<List<dynamic>>('/evaluations');
+    return response
+        .map((item) => StudyEvaluation.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<StudyEvaluationSummary> getEvaluationSummary() async {
+    final response = await _get<Map<String, dynamic>>('/evaluations/summary');
+    return StudyEvaluationSummary.fromJson(response);
+  }
+
+  Future<StudyEvaluation> createEvaluation(StudyEvaluation evaluation) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/evaluations',
+      data: evaluation.toJson(),
+    );
+    return StudyEvaluation.fromJson(response);
+  }
+
+  Future<StudyEvaluation> updateEvaluation(StudyEvaluation evaluation) async {
+    final response = await _put<Map<String, dynamic>>(
+      '/evaluations/${evaluation.id}',
+      data: evaluation.toJson(),
+    );
+    return StudyEvaluation.fromJson(response);
+  }
+
+  Future<void> deleteEvaluation(String id) async {
+    await _delete('/evaluations/$id');
+  }
+
   Future<T> _get<T>(String path) async {
     try {
       final response = await _dio.get<T>(

@@ -7,6 +7,7 @@ import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
 import '../courses/course_management_page.dart';
 import '../profile/profile_page.dart';
+import '../study/study_tools_page.dart';
 
 class StudyHomePage extends StatefulWidget {
   const StudyHomePage({
@@ -74,6 +75,10 @@ class _StudyHomePageState extends State<StudyHomePage> {
           _buildCoursesPage(),
           _buildTasksPage(),
           _buildNotesPage(),
+          StudyToolsPage(
+            controller: widget.controller,
+            onRefresh: _refresh,
+          ),
           ProfilePage(controller: widget.controller, user: widget.user),
         ];
         return Scaffold(
@@ -307,6 +312,11 @@ class _StudyHomePageState extends State<StudyHomePage> {
             label: 'Notes',
           ),
           NavigationDestination(
+            icon: Icon(Icons.style_outlined),
+            selectedIcon: Icon(Icons.style_rounded),
+            label: 'Réviser',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profil',
@@ -334,6 +344,11 @@ class _StudyHomePageState extends State<StudyHomePage> {
           icon: Icon(Icons.menu_book_outlined),
           selectedIcon: Icon(Icons.menu_book_rounded),
           label: Text('Notes'),
+        ),
+        NavigationRailDestination(
+          icon: Icon(Icons.style_outlined),
+          selectedIcon: Icon(Icons.style_rounded),
+          label: Text('Réviser'),
         ),
         NavigationRailDestination(
           icon: Icon(Icons.person_outline),

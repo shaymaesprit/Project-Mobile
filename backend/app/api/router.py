@@ -5,6 +5,7 @@ from app.api.routes import (
     courses,
     evaluations,
     events,
+    flashcard_decks,
     flashcards,
     health,
     notes,
@@ -23,6 +24,9 @@ api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
 api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 api_router.include_router(notes.router, prefix="/notes", tags=["notes"])
 api_router.include_router(flashcards.router, prefix="/flashcards", tags=["flashcards"])
+api_router.include_router(
+    flashcard_decks.router, prefix="/flashcard-decks", tags=["flashcard decks"]
+)
 api_router.include_router(
     evaluations.router, prefix="/evaluations", tags=["evaluations"]
 )

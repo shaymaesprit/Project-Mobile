@@ -29,6 +29,8 @@ class EvaluationCreate(ApiSchema):
 
     @model_validator(mode="after")
     def validate_score(self) -> Self:
+        if (self.score is None) != (self.max_score is None):
+            raise ValueError("Score and max_score must be provided together.")
         if self.score is not None and self.max_score is not None:
             if self.score > self.max_score:
                 raise ValueError("Score cannot exceed max_score.")
@@ -74,3 +76,25 @@ class EvaluationResponse(ApiSchema):
     notes: str | None
     created_at: datetime
     updated_at: datetime
+
+
+class EvaluationTrendPoint(ApiSchema):
+    evaluation_id: UUID
+    title: str
+    date: datetime
+    score: Decimal
+    max_score: Decimal
+    percentage: float
+
+
+class CourseEvaluationAverage(ApiSchema):
+    course_id: UUID | None
+    average_percentage: float
+    evaluation_count: int
+
+
+class EvaluationSummary(ApiSchema):
+    graded_count: int
+    average_percentage: float | None
+    course_averages: list[CourseEvaluationAverage]
+    trend: list[EvaluationTrendPoint]
