@@ -1,6 +1,7 @@
 from app.models.course import Course
 from app.models.extended import (
     AIInsight,
+    AIRecommendation,
     ChunkEmbedding,
     Document,
     DocumentChunk,
@@ -21,6 +22,7 @@ from app.models.user import User
 
 __all__ = [
     "AIInsight",
+    "AIRecommendation",
     "ChunkEmbedding",
     "Course",
     "Document",

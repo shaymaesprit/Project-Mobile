@@ -3,6 +3,7 @@ from uuid import UUID
 from app.core.exceptions import ResourceNotFoundError
 from app.models.extended import Notification
 from app.repositories.notification_repository import NotificationRepository
+from app.services import firebase_service
 
 
 class NotificationService:
@@ -22,4 +23,8 @@ class NotificationService:
         notification = self._repository.get_for_owner(notification_id, owner_uid)
         if notification is None:
             raise ResourceNotFoundError("Notification not found.")
-        return self._repository.mark_read(notification)
+        notification = self._repository.mark_read(notification)
+        firebase_service.sync_notification(
+            owner_uid, str(notification.id), {"read_at": notification.read_at}
+        )
+        return notification

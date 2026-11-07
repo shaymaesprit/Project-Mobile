@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/study_models.dart';
 import '../../state/study_controller.dart';
+import '../insights/learning_insights_page.dart';
+import '../insights/learning_profile_onboarding_page.dart';
+import '../settings/privacy_settings_page.dart';
 import 'edit_profile_page.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -10,10 +13,12 @@ class ProfilePage extends StatefulWidget {
     super.key,
     required this.controller,
     required this.user,
+    this.onSignOut,
   });
 
   final StudyController controller;
   final User? user;
+  final Future<void> Function()? onSignOut;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -26,6 +31,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _refresh() => widget.controller.refreshProfile();
+
+  Future<void> _open(Widget page) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => page),
+    );
+    if (mounted) await _refresh();
+  }
 
   Future<void> _editProfile() async {
     final user = widget.user;
@@ -157,13 +169,52 @@ class _ProfilePageState extends State<ProfilePage> {
               'Style préféré',
               _learningStyleLabel(student.preferredLearningStyle),
             ),
-            ...student.preferences.entries.map(
+            ...student.preferences.entries
+                .where((entry) => entry.key != 'ai_consent')
+                .map(
               (entry) => _detail(
                 _preferenceLabel(entry.key),
-                entry.value.toString(),
+                entry.value is List
+                    ? (entry.value as List).join(', ')
+                    : entry.value.toString(),
               ),
             ),
           ]),
+          const SizedBox(height: 14),
+          Card(
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.insights_outlined),
+                  title: const Text('Analyses d’apprentissage'),
+                  subtitle: const Text('Performance, comportement, assistant IA'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _open(
+                    LearningInsightsPage(controller: widget.controller),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.tune),
+                  title: const Text('Questionnaire d’apprentissage'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _open(
+                    LearningProfileOnboardingPage(controller: widget.controller),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.privacy_tip_outlined),
+                  title: const Text('Confidentialité et réglages'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _open(
+                    PrivacySettingsPage(
+                      controller: widget.controller,
+                      onSignOut: widget.onSignOut,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           if (widget.controller.profileErrorMessage != null) ...[
             const SizedBox(height: 12),
             Text(
@@ -226,6 +277,9 @@ class _ProfilePageState extends State<ProfilePage> {
         'study_environment' => 'Environnement',
         'session_minutes' => 'Durée de session',
         'break_minutes' => 'Durée de pause',
+        'preferred_hours' => 'Heures préférées',
+        'difficult_subjects' => 'Matières difficiles',
+        'attendance_rate' => 'Assiduité',
         _ => key,
       };
 }

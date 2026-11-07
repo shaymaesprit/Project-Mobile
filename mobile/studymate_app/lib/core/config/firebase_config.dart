@@ -25,6 +25,16 @@ class StudyMateFirebaseConfig {
   static const googleServerClientId =
       String.fromEnvironment('STUDYMATE_GOOGLE_SERVER_CLIENT_ID');
 
+  // Cloudinary config for profile photo uploads
+  static const cloudinaryCloudName =
+      String.fromEnvironment('STUDYMATE_CLOUDINARY_CLOUD_NAME');
+  static const cloudinaryApiKey =
+      String.fromEnvironment('STUDYMATE_CLOUDINARY_API_KEY');
+  static const cloudinaryApiSecret =
+      String.fromEnvironment('STUDYMATE_CLOUDINARY_API_SECRET');
+  static bool get cloudinaryConfigured =>
+      cloudinaryCloudName.isNotEmpty && cloudinaryApiKey.isNotEmpty && cloudinaryApiSecret.isNotEmpty;
+
   static bool get isConfigured =>
       _apiKey.isNotEmpty &&
       _appId.isNotEmpty &&

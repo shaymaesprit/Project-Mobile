@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
 from app.database.session import get_db
-from app.models.extended import Evaluation, FlashcardDeck, StudyEvent
+from app.models.extended import Evaluation, FlashcardDeck, StudyEvent, StudySession
 from app.models.user import User
 from app.repositories.course_repository import CourseRepository
 from app.repositories.health_repository import HealthRepository
@@ -24,6 +24,8 @@ from app.services.event_service import EventService
 from app.services.flashcard_service import FlashcardService
 from app.services.notification_service import NotificationService
 from app.services.owned_resource_service import OwnedResourceService
+from app.services.ai_service import AIService, LLMProvider, get_llm_provider
+from app.services.device_service import DeviceService, NotificationDispatcher
 
 
 def get_health_service(db: Session = Depends(get_db)) -> HealthService:
@@ -103,6 +105,38 @@ def get_event_service(
 
     db.info["firebase_uid"] = user.firebase_uid
     return EventService(OwnedResourceRepository(db, StudyEvent))
+
+
+def get_study_session_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> OwnedResourceService:
+    return _owned_resource_service(db, StudySession, "Study session", user.firebase_uid)
+
+
+def get_ai_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    provider: LLMProvider | None = Depends(get_llm_provider),
+) -> AIService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return AIService(db, provider)
+
+
+def get_device_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> DeviceService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return DeviceService(db)
+
+
+def get_notification_dispatcher(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> NotificationDispatcher:
+    db.info["firebase_uid"] = user.firebase_uid
+    return NotificationDispatcher(db)
 
 
 def get_notification_service(

@@ -109,6 +109,18 @@ def get_current_user(
     return UserService(UserRepository(db)).get_or_create(uid, initial_profile)
 
 
+def revoke_firebase_sessions(uid: str) -> None:
+    try:
+        firebase_auth.revoke_refresh_tokens(uid, app=_firebase_app())
+    except firebase_auth.UserNotFoundError:
+        return
+    except (DefaultCredentialsError, FirebaseError, ValueError) as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The Firebase sessions could not be revoked.",
+        ) from error
+
+
 def delete_firebase_account(uid: str) -> None:
     try:
         firebase_auth.delete_user(uid, app=_firebase_app())

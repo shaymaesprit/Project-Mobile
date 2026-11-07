@@ -3,13 +3,18 @@ import 'package:flutter/foundation.dart';
 
 import '../data/models/study_models.dart';
 import '../data/services/studymate_api.dart';
+import '../features/notifications/push_service.dart';
 
 class StudyController extends ChangeNotifier {
   StudyController({
     required StudyMateApi api,
+    this.push,
   }) : _api = api;
 
   final StudyMateApi _api;
+  final PushService? push;
+
+  StudyMateApi get api => _api;
 
   List<StudyCourse> _courses = const [];
   List<StudyCourse> _weeklySchedule = const [];

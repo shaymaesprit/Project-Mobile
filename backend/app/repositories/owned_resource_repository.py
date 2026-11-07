@@ -24,6 +24,8 @@ class OwnedResourceRepository:
             )
         elif self._model.__tablename__ == "events":
             statement = statement.order_by(self._model.starts_at)
+        elif self._model.__tablename__ == "study_sessions":
+            statement = statement.order_by(self._model.started_at.desc())
         return list(self._db.scalars(statement))
 
     def get_for_owner(self, resource_id: UUID, owner_uid: str) -> Any | None:

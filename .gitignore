@@ -29,6 +29,7 @@ coverage/
 **/google-services.json
 **/GoogleService-Info.plist
 **/firebase_options.dart
+**/dart_defines.local.json
 **/*.jks
 **/*.keystore
 

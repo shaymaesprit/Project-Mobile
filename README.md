@@ -65,6 +65,26 @@ Google Cloud credentials, respectively. Create a Firebase Storage bucket and
 pass its exact bucket name (shown in Firebase Console) as
 `STUDYMATE_FIREBASE_STORAGE_BUCKET`.
 
+### Run on another computer (same Firebase project, database, and API)
+
+Nothing in the Firebase project, PostgreSQL schema, or REST API changes between
+machines. Only the local launch values do:
+
+1. Copy `mobile\studymate_app\dart_defines.example.json` to
+   `mobile\studymate_app\dart_defines.local.json` (git-ignored) and fill in the
+   Web API key, Storage bucket, and OAuth Web client ID from Firebase/Google
+   Cloud Console. On a physical phone, set `STUDYMATE_API_URL` to
+   `http://<LAN IP of the computer running FastAPI>:8000/api/v1`.
+2. Register this computer's debug SHA-1/SHA-256 (`.\gradlew signingReport`) in
+   the Firebase Android app settings so Google sign-in works there.
+3. Run the backend (see below) with the same `FIREBASE_PROJECT_ID`, your own
+   service-account key path, and the same `DATABASE_URL`.
+4. Launch the app:
+
+```powershell
+flutter run --dart-define-from-file=dart_defines.local.json
+```
+
 The Firebase client options and OAuth client ID identify the app; they are not
 Firebase Admin credentials. Never put a Firebase service-account private key in
 Flutter, source control, or a `--dart-define`.
@@ -220,6 +240,50 @@ exceed their maximum. `GET /api/v1/evaluations/summary` returns the average
 percentage for graded evaluations, per-course averages, and dated results for
 the Flutter progress chart. Both study-resource modules are exposed in the
 Flutter **Réviser** section and synchronized with the authenticated API.
+
+### Study sessions, machine learning and AI assistant
+
+All endpoints below are scoped to the Firebase UID of the verified ID token.
+
+- `GET|POST /api/v1/study-sessions`, `DELETE /api/v1/study-sessions/{id}`:
+  study sessions (start, end, focus rating 1-5) used by the models.
+- `GET /api/v1/ml/learning-profile|behavior|performance|recommendations`:
+  explainable models M1-M4. They return `insufficient_data` or generic
+  cold-start output instead of inventing predictions; confidence is never
+  "high". M3 uses the latest trained artifact when present, otherwise a
+  rules baseline. Optional training: `pip install -e ".[ml]"` then
+  `python -m app.ml.train` (writes versioned JSON artifacts).
+- `GET|PUT /api/v1/ai/consent`: explicit consent, required for every other
+  `/api/v1/ai/*` call (HTTP 403 otherwise). Only anonymous statistics are sent
+  to the provider.
+- `POST /api/v1/ai/profile/analyze`, `GET /api/v1/ai/insights`,
+  `POST|GET /api/v1/ai/recommendations`,
+  `PATCH /api/v1/ai/recommendations/{id}` (`accepted`, `modified` with edits,
+  `rejected`), `POST /api/v1/ai/chat`. Provider output is validated against a
+  strict schema (one retry); on failure recommendations fall back to labelled
+  rule-based items and chat returns HTTP 503. Every item exposes
+  `ai_generated` and a `notice`.
+- `POST /api/v1/users/me/devices`, `DELETE /api/v1/users/me/devices/{id}`:
+  FCM token registration; `POST /api/v1/notifications/test` sends a test push.
+  Invalid tokens are pruned after delivery attempts.
+- `POST /api/v1/auth/session`, `POST /api/v1/auth/logout-all`: session check
+  and revocation of all refresh tokens.
+- Requests are rate limited per client; sensitive actions are written to an
+  audit log.
+
+Configuration (see `backend/.env.example`): `LLM_PROVIDER`, `LLM_API_KEY`,
+`LLM_MODEL`, `LLM_BASE_URL` and the rate-limit settings. Without an LLM key the
+assistant degrades gracefully as described above.
+
+Apply the new table with `alembic upgrade head` (revision
+`0009_ai_recommendations`). Deploy `firestore.rules` with
+`firebase deploy --only firestore:rules`.
+
+The Flutter profile page links to **Analyses d’apprentissage** (ML results,
+AI recommendations with accept/modify/reject, chat, session timer), the
+**Questionnaire d’apprentissage** and **Confidentialité et réglages** (AI
+consent, push notifications, sign out of all devices). Push uses
+`firebase_messaging`; run `flutter pub get` after updating.
 
 ## Tests
 

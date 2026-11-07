@@ -266,6 +266,29 @@ CREATE TABLE IF NOT EXISTS ai_insights (
     CONSTRAINT uq_ai_insights_owner_id UNIQUE (owner_uid, id)
 );
 
+CREATE TABLE IF NOT EXISTS ai_recommendations (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_uid varchar(128) NOT NULL
+        REFERENCES users(firebase_uid) ON DELETE CASCADE,
+    title varchar(200) NOT NULL,
+    description text NOT NULL,
+    category varchar(32) NOT NULL,
+    priority varchar(16) NOT NULL DEFAULT 'medium'
+        CHECK (priority IN ('low', 'medium', 'high')),
+    reason text,
+    suggested_action text,
+    source varchar(16) NOT NULL DEFAULT 'ai'
+        CHECK (source IN ('ai', 'rules')),
+    status varchar(16) NOT NULL DEFAULT 'pending'
+        CHECK (status IN ('pending', 'accepted', 'modified', 'rejected')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT uq_ai_recommendations_owner_id UNIQUE (owner_uid, id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_ai_recommendations_owner_created
+    ON ai_recommendations (owner_uid, created_at);
+
 CREATE TABLE IF NOT EXISTS notification_devices (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     owner_uid varchar(128) NOT NULL
@@ -445,7 +468,7 @@ BEGIN
         'users', 'learning_profiles', 'courses', 'tasks', 'notes',
         'flashcards', 'flashcard_decks', 'flashcard_reviews',
         'evaluations', 'events', 'notifications',
-        'study_sessions', 'gamification', 'ai_insights',
+        'study_sessions', 'gamification', 'ai_insights', 'ai_recommendations',
         'notification_devices', 'documents', 'document_chunks',
         'chunk_embeddings'
     ] LOOP

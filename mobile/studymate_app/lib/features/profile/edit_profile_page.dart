@@ -312,7 +312,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
       _errorMessage = null;
     });
     try {
-      final url = await ProfilePhotoService.selectAndUpload(widget.user);
+      final url = await ProfilePhotoService.selectAndUpload(widget.user.uid);
       if (url != null && mounted) setState(() => _photoUrl = url);
     } on StateError catch (error) {
       if (mounted) setState(() => _errorMessage = error.message);

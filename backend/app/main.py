@@ -11,6 +11,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.core.exceptions import StudyMateError
 from app.core.logging import configure_logging
+from app.core.rate_limit import RateLimiter, RateLimitMiddleware
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -37,8 +38,16 @@ app = FastAPI(
         {"name": "flashcards", "description": "User-owned flashcards and review history."},
         {"name": "flashcard decks", "description": "User-owned flashcard sets."},
         {"name": "evaluations", "description": "User-owned grades and progress."},
+        {"name": "study sessions", "description": "Focus and study sessions."},
+        {"name": "machine learning", "description": "Learning profile, behavior, performance and recommendations (M1-M4)."},
+        {"name": "ai assistant", "description": "Consent-gated generative AI features."},
     ],
 )
+
+app.state.rate_limiter = RateLimiter(
+    settings.rate_limit_per_minute, settings.rate_limit_ai_per_minute
+)
+app.add_middleware(RateLimitMiddleware, limiter=app.state.rate_limiter)
 
 app.add_middleware(
     CORSMiddleware,

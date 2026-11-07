@@ -1,0 +1,9 @@
+{
+  "STUDYMATE_FIREBASE_API_KEY": "<Firebase Web API key>",
+  "STUDYMATE_FIREBASE_APP_ID": "1:406992456210:android:f0189e87cc8c19f67a26cb",
+  "STUDYMATE_FIREBASE_PROJECT_ID": "studymate-8930d",
+  "STUDYMATE_FIREBASE_SENDER_ID": "406992456210",
+  "STUDYMATE_FIREBASE_STORAGE_BUCKET": "<bucket name from Firebase Console, e.g. studymate-8930d.firebasestorage.app>",
+  "STUDYMATE_GOOGLE_SERVER_CLIENT_ID": "<OAuth Web client ID>",
+  "STUDYMATE_API_URL": "http://10.0.2.2:8000/api/v1"
+}

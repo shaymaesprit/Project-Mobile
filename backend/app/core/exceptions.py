@@ -25,3 +25,13 @@ class InvalidResourceStateError(StudyMateError):
 class CourseScheduleConflictError(StudyMateError):
     status_code = 409
     code = "course_schedule_conflict"
+
+
+class AIConsentRequiredError(StudyMateError):
+    status_code = 403
+    code = "ai_consent_required"
+
+
+class AIUnavailableError(StudyMateError):
+    status_code = 503
+    code = "ai_unavailable"

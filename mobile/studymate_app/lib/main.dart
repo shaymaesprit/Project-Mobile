@@ -1,12 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'core/config/firebase_config.dart';
 import 'data/services/studymate_api.dart';
+import 'features/auth/change_password_page.dart';
+import 'features/auth/email_verification_page.dart';
 import 'features/auth/sign_in_page.dart';
 import 'features/auth/study_mate_auth_service.dart';
 import 'features/home/study_home_page.dart';
+import 'features/notifications/push_service.dart';
 import 'state/study_controller.dart';
 
 Future<void> main() async {
@@ -17,6 +21,7 @@ Future<void> main() async {
   if (firebaseOptions != null) {
     try {
       await Firebase.initializeApp(options: firebaseOptions);
+      FirebaseMessaging.onBackgroundMessage(studyMateBackgroundMessageHandler);
     } on FirebaseException catch (error) {
       firebaseSetupError =
           'Firebase n’a pas pu démarrer (${error.code}). Vérifie les options '
@@ -51,7 +56,10 @@ class StudyMateApp extends StatefulWidget {
 
 class _StudyMateAppState extends State<StudyMateApp> {
   late final FirebaseAuth? _auth;
+  late final StudyMateApi _api;
   late final StudyController _controller;
+  late final PushService _push;
+  final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   ThemeMode _themeMode = ThemeMode.system;
 
   @override
@@ -61,8 +69,15 @@ class _StudyMateAppState extends State<StudyMateApp> {
     final tokenProvider = _auth == null
         ? null
         : () async => await FirebaseAuth.instance.currentUser?.getIdToken();
-    final api = StudyMateApi(tokenProvider: tokenProvider);
-    _controller = StudyController(api: api);
+    _api = StudyMateApi(tokenProvider: tokenProvider);
+    _push = PushService(
+      _api,
+      onForegroundMessage: (title, body) =>
+          _messengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(body.isEmpty ? title : '$title — $body')),
+      ),
+    );
+    _controller = StudyController(api: _api, push: _push);
   }
 
   @override
@@ -70,6 +85,7 @@ class _StudyMateAppState extends State<StudyMateApp> {
     const seedColor = Color(0xFF6750A4);
     return MaterialApp(
       title: 'StudyMate',
+      scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
       theme: ThemeData(
@@ -103,6 +119,7 @@ class _StudyMateAppState extends State<StudyMateApp> {
       ),
       home: _AppGate(
         auth: _auth,
+        api: _api,
         controller: _controller,
         firebaseConfigured: widget.firebaseConfigured,
         firebaseSetupError: widget.firebaseSetupError,
@@ -124,6 +141,7 @@ class _StudyMateAppState extends State<StudyMateApp> {
 class _AppGate extends StatefulWidget {
   const _AppGate({
     required this.auth,
+    required this.api,
     required this.controller,
     required this.firebaseConfigured,
     required this.missingFirebaseOptions,
@@ -133,6 +151,7 @@ class _AppGate extends StatefulWidget {
   });
 
   final FirebaseAuth? auth;
+  final StudyMateApi api;
   final StudyController controller;
   final bool firebaseConfigured;
   final String? firebaseSetupError;
@@ -164,15 +183,48 @@ class _AppGateState extends State<_AppGate> {
           );
         }
         final user = snapshot.data;
-        if (user != null) return _home(user: user, onConnect: null);
-        return SignInPage(auth: auth);
+        if (user == null) return SignInPage(auth: auth, api: widget.api);
+        if (StudyMateAuthService.needsEmailVerification(user)) {
+          return EmailVerificationPage(
+            auth: auth,
+            email: user.email ?? '',
+            onVerified: () => setState(() {}),
+          );
+        }
+        _syncPush(user.uid);
+        return _home(user: user, onConnect: null);
       },
     );
+  }
+
+  String? _pushUid;
+
+  void _syncPush(String uid) {
+    if (_pushUid == uid) return;
+    _pushUid = uid;
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => widget.controller.push?.syncIfPermitted(),
+    );
+  }
+
+  Future<void> _signOut(FirebaseAuth auth) async {
+    _pushUid = null;
+    await widget.controller.push?.disable();
+    await StudyMateAuthService.signOut(auth);
   }
 
   Widget _home({required User? user, required VoidCallback? onConnect}) {
     final auth = widget.auth;
     return StudyHomePage(
+      onChangePassword: auth == null ||
+              user == null ||
+              !StudyMateAuthService.usesPassword(user)
+          ? null
+          : () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ChangePasswordPage(auth: auth),
+                ),
+              ),
       controller: widget.controller,
       user: user,
       firebaseConfigured: widget.firebaseConfigured,
@@ -180,7 +232,7 @@ class _AppGateState extends State<_AppGate> {
       missingFirebaseOptions: widget.missingFirebaseOptions,
       isDarkMode: widget.isDarkMode,
       onToggleTheme: widget.onToggleTheme,
-      onSignOut: auth == null ? null : () => StudyMateAuthService.signOut(auth),
+      onSignOut: auth == null ? null : () => _signOut(auth),
       onConnect: onConnect,
     );
   }

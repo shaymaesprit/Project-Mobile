@@ -19,6 +19,7 @@ class StudyHomePage extends StatefulWidget {
     required this.isDarkMode,
     required this.onToggleTheme,
     this.onSignOut,
+    this.onChangePassword,
     this.firebaseSetupError,
     this.onConnect,
   });
@@ -31,6 +32,7 @@ class StudyHomePage extends StatefulWidget {
   final bool isDarkMode;
   final VoidCallback onToggleTheme;
   final Future<void> Function()? onSignOut;
+  final VoidCallback? onChangePassword;
   final VoidCallback? onConnect;
 
   @override
@@ -79,7 +81,11 @@ class _StudyHomePageState extends State<StudyHomePage> {
             controller: widget.controller,
             onRefresh: _refresh,
           ),
-          ProfilePage(controller: widget.controller, user: widget.user),
+          ProfilePage(
+            controller: widget.controller,
+            user: widget.user,
+            onSignOut: widget.onSignOut,
+          ),
         ];
         return Scaffold(
           appBar: AppBar(
@@ -139,12 +145,14 @@ class _StudyHomePageState extends State<StudyHomePage> {
                     switch (action) {
                       case _AccountAction.profile:
                         _selectPage(4);
+                      case _AccountAction.changePassword:
+                        widget.onChangePassword?.call();
                       case _AccountAction.signOut:
                         _signOut();
                     }
                   },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(
                       value: _AccountAction.profile,
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -152,7 +160,16 @@ class _StudyHomePageState extends State<StudyHomePage> {
                         title: Text('Mon profil'),
                       ),
                     ),
-                    PopupMenuItem(
+                    if (widget.onChangePassword != null)
+                      const PopupMenuItem(
+                        value: _AccountAction.changePassword,
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.lock_reset_outlined),
+                          title: Text('Changer le mot de passe'),
+                        ),
+                      ),
+                    const PopupMenuItem(
                       value: _AccountAction.signOut,
                       child: ListTile(
                         contentPadding: EdgeInsets.zero,
@@ -1073,7 +1090,7 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
-enum _AccountAction { profile, signOut }
+enum _AccountAction { profile, changePassword, signOut }
 
 enum _TaskFilter {
   all('Toutes'),

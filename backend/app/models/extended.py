@@ -401,6 +401,50 @@ class AIInsight(Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AIRecommendation(Base):
+    __tablename__ = "ai_recommendations"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'accepted', 'modified', 'rejected')",
+            name="ck_ai_recommendations_status",
+        ),
+        CheckConstraint(
+            "priority IN ('low', 'medium', 'high')",
+            name="ck_ai_recommendations_priority",
+        ),
+        CheckConstraint(
+            "source IN ('ai', 'rules')", name="ck_ai_recommendations_source"
+        ),
+        UniqueConstraint("owner_uid", "id", name="uq_ai_recommendations_owner_id"),
+        Index("ix_ai_recommendations_owner_created", "owner_uid", "created_at"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_uid: Mapped[str] = mapped_column(
+        ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(200), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    priority: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="medium", server_default=text("'medium'")
+    )
+    reason: Mapped[str | None] = mapped_column(Text)
+    suggested_action: Mapped[str | None] = mapped_column(Text)
+    source: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="ai", server_default=text("'ai'")
+    )
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="pending", server_default=text("'pending'")
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class NotificationDevice(Base):
     __tablename__ = "notification_devices"
     __table_args__ = (

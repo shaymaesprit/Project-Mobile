@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../core/config/api_config.dart';
+import '../models/ai_models.dart';
 import '../models/study_models.dart';
 
 typedef FirebaseTokenProvider = Future<String?> Function();
@@ -330,6 +331,125 @@ class StudyMateApi {
 
   Future<void> deleteEvaluation(String id) async {
     await _delete('/evaluations/$id');
+  }
+
+  Future<AiConsent> getAiConsent() async =>
+      AiConsent.fromJson(await _get<Map<String, dynamic>>('/ai/consent'));
+
+  Future<AiConsent> setAiConsent(bool granted) async => AiConsent.fromJson(
+        await _put<Map<String, dynamic>>(
+          '/ai/consent',
+          data: {'granted': granted},
+        ),
+      );
+
+  Future<List<AiInsight>> getAiInsights() async {
+    final response = await _get<List<dynamic>>('/ai/insights');
+    return response.map((item) => AiInsight.fromJson(_asJson(item))).toList();
+  }
+
+  Future<AiInsight> analyzeAiProfile() async => AiInsight.fromJson(
+        await _post<Map<String, dynamic>>('/ai/profile/analyze', data: null),
+      );
+
+  Future<List<AiRecommendation>> getAiRecommendations() async {
+    final response = await _get<List<dynamic>>('/ai/recommendations');
+    return response
+        .map((item) => AiRecommendation.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<List<AiRecommendation>> generateAiRecommendations() async {
+    final response = await _post<List<dynamic>>(
+      '/ai/recommendations',
+      data: null,
+    );
+    return response
+        .map((item) => AiRecommendation.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<AiRecommendation> updateAiRecommendation(
+    String id, {
+    required String status,
+    String? title,
+    String? description,
+  }) async =>
+      AiRecommendation.fromJson(
+        await _patch<Map<String, dynamic>>(
+          '/ai/recommendations/$id',
+          data: {
+            'status': status,
+            if (title != null) 'title': title,
+            if (description != null) 'description': description,
+          },
+        ),
+      );
+
+  Future<String> chatWithAi(String message) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/ai/chat',
+      data: {'message': message},
+    );
+    return response['reply'] as String? ?? '';
+  }
+
+  Future<MlOverview> getMlOverview() async {
+    final results = await Future.wait([
+      _get<Map<String, dynamic>>('/ml/learning-profile'),
+      _get<Map<String, dynamic>>('/ml/behavior'),
+      _get<Map<String, dynamic>>('/ml/performance'),
+      _get<Map<String, dynamic>>('/ml/recommendations'),
+    ]);
+    return MlOverview(
+      profile: results[0],
+      behavior: results[1],
+      performance: results[2],
+      recommendations: results[3],
+    );
+  }
+
+  Future<void> createStudySession({
+    required DateTime startedAt,
+    required DateTime endedAt,
+    int? focusRating,
+  }) async {
+    await _post<Map<String, dynamic>>(
+      '/study-sessions',
+      data: {
+        'started_at': startedAt.toUtc().toIso8601String(),
+        'ended_at': endedAt.toUtc().toIso8601String(),
+        if (focusRating != null) 'focus_rating': focusRating,
+      },
+    );
+  }
+
+  Future<String> registerDevice({
+    required String fcmToken,
+    required String platform,
+    String? deviceName,
+  }) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/users/me/devices',
+      data: {
+        'fcm_token': fcmToken,
+        'platform': platform,
+        if (deviceName != null) 'device_name': deviceName,
+      },
+    );
+    return response['id'] as String;
+  }
+
+  Future<void> unregisterDevice(String deviceId) async {
+    await _delete('/users/me/devices/$deviceId');
+  }
+
+  Future<void> sendTestNotification() async {
+    await _post<Map<String, dynamic>>('/notifications/test', data: null);
+  }
+
+  Future<void> logoutAllSessions() async {
+    await _post<dynamic>('/auth/logout-all', data: null);
   }
 
   Future<T> _get<T>(String path) async {
