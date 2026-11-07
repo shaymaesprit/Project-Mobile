@@ -1,307 +1,511 @@
-# StudyMate
+# StudyMate - Application Complète de Gestion d'Études
 
-StudyMate contains a Flutter mobile app and a FastAPI backend. PostgreSQL with
-pgvector stores application data. Firebase Authentication provides identity;
-the API verifies Firebase ID tokens and scopes records to the authenticated
-Firebase UID.
+Une application web et mobile complète pour les étudiants, avec backend FastAPI et frontend Flutter.
 
-## Project structure
+## 📋 Vue d'ensemble du Projet
 
-```text
-mobile/
-  studymate_app/      Flutter and Android Studio project
-backend/
-  app/
-    api/               Versioned HTTP routes and dependency wiring
-    core/              Settings, errors, and logging
-    database/          SQLAlchemy Base, engine, and request sessions
-    models/            SQLAlchemy persistence models
-    repositories/      PostgreSQL queries and persistence
-    schemas/           Pydantic request/response contracts
-    services/           Application and business rules
-  alembic/             Database migrations
-  tests/               Backend tests
-docker-compose.yml    Local PostgreSQL with pgvector
+StudyMate est une plateforme tout-en-un pour :
+- ✅ Gérer vos cours, tâches et notes
+- ✅ Suivre votre progression d'étude
+- ✅ Recevez des recommandations IA personnalisées
+- ✅ Synchroniser les données en temps réel
+- ✅ Interface moderne avec deux designs au choix
+
+```
+┌─────────────────────────────────────────────┐
+│                StudyMate                    │
+├─────────────────────────────────────────────┤
+│  ┌──────────────┐  ┌──────────────────────┐ │
+│  │   Backend    │  │   Application Mobile │ │
+│  │  (FastAPI)   │  │     (Flutter)        │ │
+│  │  PostgreSQL  │  │  - Style Moderne     │ │
+│  │  - API REST  │  │  - Style Créatif     │ │
+│  │  - IA (Groq) │  │  - Animations        │ │
+│  │  - Firebase  │  │  - Dark Mode         │ │
+│  └──────────────┘  └──────────────────────┘ │
+└─────────────────────────────────────────────┘
 ```
 
-## Windows prerequisites
+---
 
-- Flutter SDK with the Android SDK and an Android Studio emulator.
-- Python 3.12 or another supported Python 3.11+ version.
-- Git for Windows.
-- Docker Desktop for the local PostgreSQL service.
+## 📁 Structure du Projet
 
-## Run the mobile app
+```
+studymate/
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── core/              # Configuration
+│   │   │   ├── config.py
+│   │   │   ├── exceptions.py
+│   │   │   ├── audit.py
+│   │   │   └── logging.py
+│   │   ├── api/
+│   │   │   ├── router.py
+│   │   │   └── routes/
+│   │   ├── database/          # Base de données
+│   │   │   ├── connection.py
+│   │   │   └── session.py
+│   │   ├── models/            # ORM Models
+│   │   │   ├── user.py
+│   │   │   ├── course.py
+│   │   │   └── task.py
+│   │   ├── schemas/           # Pydantic Schemas
+│   │   │   ├── user.py
+│   │   │   ├── course.py
+│   │   │   └── ai.py
+│   │   ├── services/          # Business Logic
+│   │   │   ├── user_service.py
+│   │   │   ├── ai_service.py
+│   │   │   ├── course_service.py
+│   │   │   └── task_service.py
+│   │   ├── repositories/      # Data Access
+│   │   │   ├── user_repository.py
+│   │   │   ├── course_repository.py
+│   │   │   └── task_repository.py
+│   │   └── ml/                # Machine Learning
+│   │       ├── m1_learning_profile.py
+│   │       ├── m2_behavior.py
+│   │       ├── m3_performance.py
+│   │       └── m4_recommendations.py
+│   ├── alembic/               # Migrations
+│   ├── tests/
+│   ├── pyproject.toml
+│   ├── .env
+│   └── requirements.txt
+│
+├── mobile/studymate_app/
+│   ├── lib/
+│   │   ├── main.dart
+│   │   ├── features/
+│   │   │   ├── home/
+│   │   │   │   ├── modern_dashboard.dart
+│   │   │   │   ├── creative_dashboard.dart
+│   │   │   │   ├── dashboard_selector.dart
+│   │   │   │   └── widgets/
+│   │   │   ├── auth/
+│   │   │   ├── courses/
+│   │   │   ├── profile/
+│   │   │   └── study/
+│   │   ├── data/
+│   │   │   ├── models/
+│   │   │   └── services/
+│   │   └── state/
+│   ├── pubspec.yaml
+│   ├── dart_defines.local.json
+│   └── README.md              # Documentation Flutter
+│
+├── firebase.json
+├── firestore.rules
+├── docker-compose.yml
+└── README.md                  # Ce fichier
+```
 
-```powershell
-Set-Location mobile\studymate_app
+---
+
+## 🚀 Installation Rapide
+
+### 1️⃣ Cloner le Projet
+
+```bash
+git clone https://github.com/yourusername/studymate.git
+cd studymate
+```
+
+### 2️⃣ Configuration Backend
+
+#### Via Docker (Recommandé)
+
+```bash
+docker-compose up -d
+```
+
+Cela va lancer :
+- PostgreSQL sur le port 5433
+- Redis (si configuré)
+
+#### Manuel
+
+```bash
+cd backend
+
+# Créer l'environnement Python
+python -m venv .venv
+
+# Activer
+# Windows
+.venv\Scripts\Activate.ps1
+# macOS/Linux
+source .venv/bin/activate
+
+# Installer les dépendances
+pip install -r requirements.txt
+
+# Configuration
+cp .env.example .env
+# Éditer .env avec vos valeurs
+
+# Migrations
+alembic upgrade head
+
+# Lancer
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### 3️⃣ Configuration Mobile
+
+```bash
+cd mobile/studymate_app
+
+# Installer les dépendances
 flutter pub get
-flutter run
-```
 
-Open `mobile\studymate_app` in Android Studio to work on the Flutter project.
-Firebase authentication and the API must be configured before the app can
-show account data; it does not substitute sample records for backend data.
+# Éditer dart_defines.local.json
+# Assurez-vous que l'URL API pointe vers votre backend
 
-To connect Firebase on Android, register an Android app in Firebase Console
-with application ID `com.example.studymate`, enable email/password
-and Google authentication, then pass the project client configuration to
-Flutter. Google Sign-In also needs the OAuth **Web application** client ID from the
-same Firebase/Google Cloud project:
-
-```powershell
-flutter run `
-  --dart-define="STUDYMATE_FIREBASE_API_KEY=<Firebase Web API key>" `
-  --dart-define="STUDYMATE_GOOGLE_SERVER_CLIENT_ID=<OAuth Web client ID>" `
-  --dart-define="STUDYMATE_FIREBASE_STORAGE_BUCKET=<Firebase Storage bucket>"
-```
-
-The StudyMate Android app ID, project ID, and sender ID provided in Firebase
-Console are configured as Flutter defaults (`1:406992456210:android:f0189e87cc8c19f67a26cb`,
-`studymate-8930d`, and `406992456210`). The project ID is also prefilled in
-`backend\.env.example`. The Firebase Web API key and Google OAuth Web client ID
-are still required launch values; find them in Firebase project settings and
-Google Cloud credentials, respectively. Create a Firebase Storage bucket and
-pass its exact bucket name (shown in Firebase Console) as
-`STUDYMATE_FIREBASE_STORAGE_BUCKET`.
-
-### Run on another computer (same Firebase project, database, and API)
-
-Nothing in the Firebase project, PostgreSQL schema, or REST API changes between
-machines. Only the local launch values do:
-
-1. Copy `mobile\studymate_app\dart_defines.example.json` to
-   `mobile\studymate_app\dart_defines.local.json` (git-ignored) and fill in the
-   Web API key, Storage bucket, and OAuth Web client ID from Firebase/Google
-   Cloud Console. On a physical phone, set `STUDYMATE_API_URL` to
-   `http://<LAN IP of the computer running FastAPI>:8000/api/v1`.
-2. Register this computer's debug SHA-1/SHA-256 (`.\gradlew signingReport`) in
-   the Firebase Android app settings so Google sign-in works there.
-3. Run the backend (see below) with the same `FIREBASE_PROJECT_ID`, your own
-   service-account key path, and the same `DATABASE_URL`.
-4. Launch the app:
-
-```powershell
+# Lancer l'app
 flutter run --dart-define-from-file=dart_defines.local.json
 ```
 
-The Firebase client options and OAuth client ID identify the app; they are not
-Firebase Admin credentials. Never put a Firebase service-account private key in
-Flutter, source control, or a `--dart-define`.
+---
 
-### Firebase Console setup
+## 🎯 Démarrer l'Application
 
-1. Use Firebase project `studymate-8930d`, then add/confirm its Android app
-   with package name `com.example.studymate` and app ID
-   `1:406992456210:android:f0189e87cc8c19f67a26cb`.
-2. In `mobile\studymate_app\android`, run
-   `.\gradlew signingReport`. Add the debug SHA-1 and SHA-256 fingerprints for
-   local development under the Android app settings in Firebase Console.
-   Register the release signing fingerprints separately before publishing.
-3. In **Authentication → Sign-in method**, enable **Email/Password** and
-   **Google**. Set the support email for Google sign-in.
-4. In **Project settings → General**, copy the Android app ID, project ID,
-   sender ID, and Web API key into the corresponding Flutter defines above.
-5. In **Google Cloud Console → APIs & Services → Credentials**, copy the OAuth
-   2.0 client ID of type **Web application** for this project into
-   `STUDYMATE_GOOGLE_SERVER_CLIENT_ID` (not the Android OAuth client ID).
-6. For the backend, set `FIREBASE_PROJECT_ID` in `backend\.env`. For local
-   development, create a Firebase Admin service-account key and store it
-   outside the repository; set `GOOGLE_APPLICATION_CREDENTIALS` to its
-   absolute path. Prefer Application Default Credentials or workload identity
-   instead of a downloaded key in deployed environments.
-7. In **Storage**, create a bucket, then publish the root `storage.rules`
-   rules. They allow only an authenticated user to access that user's profile
-   photo and limit uploads to 5 MB JPEG/PNG/WebP images.
-8. From `mobile\studymate_app`, run `flutter pub get` and the Flutter command
-   shown above. Start the backend as described below before syncing data.
+### Backend
 
-Email registration, sign-in, and password reset use Firebase Authentication
-directly. Google sign-in exchanges Google's ID token for a Firebase session.
-The app obtains a Firebase ID token for each authenticated API request and
-sends it as `Authorization: Bearer <token>`. FastAPI verifies the token with
-Firebase Admin; protected routes derive the UID only from that verified token,
-scope PostgreSQL queries to it, and create the local user row on first use.
-The account menu lets the signed-in user update their display name/photo
-(Firebase and `PUT /api/v1/users/me`) or sign out.
-The profile screen reads and updates the authenticated account and learning
-profile through the API. Academic level, specialty, goals, learning style,
-daily study target, and study preferences are persisted in PostgreSQL.
-Profile images are uploaded from Flutter to
-`users/{verified Firebase UID}/profile/avatar` in Firebase Storage; the
-resulting download URL is stored in the user's API profile. Storage access
-rules are in `storage.rules` and must be published to the project's bucket.
+```bash
+# Windows
+cd backend
+.venv\Scripts\Activate.ps1
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
-## Start PostgreSQL
-
-Start Docker Desktop first, then run this command from the repository root:
-
-```powershell
-docker compose up -d db
+# macOS/Linux
+cd backend
+source .venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-The local database uses development-only credentials from
-`docker-compose.yml` and is published on port `5433` to avoid colliding with an
-existing PostgreSQL installation on port `5432`. Change the development
-credentials before exposing the database outside the local development
-machine.
+Le backend sera disponible à : `http://localhost:8000`
+API Docs : `http://localhost:8000/docs`
 
-`backend\schema.sql` is the proposed complete schema for a fresh database.
-The running project is currently managed by Alembic; review and convert this
-reference into an Alembic migration before applying it to an existing database.
-Its row-level security policies require the API to set the verified Firebase
-UID transaction-locally as `app.firebase_uid` for each request.
+### Application Mobile
 
-## Configure and run the backend
+```bash
+cd mobile/studymate_app
+flutter run --dart-define-from-file=dart_defines.local.json
+```
 
-From the repository root, copy the example backend settings:
+### Vérifier la Connexion
 
-```powershell
-if (-not (Test-Path backend\.env)) {
-  Copy-Item backend\.env.example backend\.env
+```bash
+# Vérifier que l'API fonctionne
+curl http://localhost:8000/api/v1/health
+
+# Réponse attendue
+{"status":"ok","database":"connected"}
+```
+
+---
+
+## 🎨 Interface Utilisateur
+
+### Style Moderne 💼
+
+**Caractéristiques :**
+- Design professionnel et élégant
+- Anneau de progression circulaire
+- Gradients doux
+- Animations subtiles
+- Parfait pour un look corporate
+
+### Style Créatif 🎨
+
+**Caractéristiques :**
+- Design dynamique et coloré
+- Hero header animé
+- Cartes d'action flottantes
+- Gamification avec streak
+- Animations énergiques
+- Parfait pour les étudiants
+
+### Basculer les Styles
+
+Cliquez sur le bouton flottant en bas à droite du dashboard pour passer d'un style à l'autre !
+
+---
+
+## 🔌 Architecture API
+
+### Endpoints Principaux
+
+```
+GET    /api/v1/health                    # Santé de l'API
+GET    /api/v1/users/me                  # Profil utilisateur
+PUT    /api/v1/users/me                  # Mettre à jour le profil
+GET    /api/v1/courses                   # Liste des cours
+POST   /api/v1/courses                   # Créer un cours
+GET    /api/v1/tasks                     # Liste des tâches
+POST   /api/v1/tasks                     # Créer une tâche
+GET    /api/v1/notes                     # Liste des notes
+POST   /api/v1/notes                     # Créer une note
+GET    /api/v1/ai/recommendations        # Recommandations IA
+POST   /api/v1/ai/chat                   # Chat avec l'IA
+```
+
+### Authentification
+
+- **Type :** Firebase JWT
+- **Header :** `Authorization: Bearer <token>`
+
+---
+
+## 🤖 Assistant IA
+
+L'assistant IA utilise le modèle `openai/gpt-oss-120b` via Groq API.
+
+### Fonctionnalités
+
+- ✅ Recommandations d'étude personnalisées
+- ✅ Chat conversationnel
+- ✅ Analyse de profil d'apprentissage
+- ✅ Suggestions de planification
+- ✅ Mode hors ligne avec fallback règles
+
+### Configuration
+
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=openai/gpt-oss-120b
+LLM_BASE_URL=https://api.groq.com/openai/v1
+LLM_API_KEY=your_groq_key
+LLM_TIMEOUT_SECONDS=20
+```
+
+---
+
+## 📊 Base de Données
+
+### Tables Principales
+
+```
+users              # Utilisateurs Firebase
+profiles           # Profils étudiants
+courses            # Cours
+tasks              # Tâches
+notes              # Notes
+flashcard_decks    # Decks de flashcards
+study_sessions     # Sessions d'étude
+ai_recommendations # Recommandations IA
+ai_insights        # Insights générés par IA
+```
+
+### Migrations
+
+```bash
+# Créer une nouvelle migration
+alembic revision --autogenerate -m "Description"
+
+# Appliquer les migrations
+alembic upgrade head
+
+# Revenir en arrière
+alembic downgrade -1
+```
+
+---
+
+## 🔐 Configuration Firebase
+
+Le projet utilise Firebase pour :
+- Authentification
+- Stockage de fichiers
+- Notifications push
+
+### Configuration Requise
+
+```json
+{
+  "STUDYMATE_FIREBASE_API_KEY": "your_api_key",
+  "STUDYMATE_FIREBASE_APP_ID": "your_app_id",
+  "STUDYMATE_FIREBASE_PROJECT_ID": "studymate-8930d",
+  "STUDYMATE_FIREBASE_SENDER_ID": "your_sender_id",
+  "STUDYMATE_FIREBASE_STORAGE_BUCKET": "your_bucket"
 }
 ```
 
-Edit `backend\.env` and set `FIREBASE_PROJECT_ID`. For local Firebase Admin
-authentication, download a service-account key and store it outside this
-repository. Set `GOOGLE_APPLICATION_CREDENTIALS` to its absolute path in
-`backend\.env`. Never commit or share the service-account key.
-`DATABASE_URL` is also read from this file; do not put database credentials in
-source code or paste the URL into logs or issue reports.
-For Flutter Web, set `CORS_ORIGINS` to a JSON array containing the exact local
-web origins you use. The development default also accepts loopback origins
-with a port; set `CORS_ORIGIN_REGEX` to an empty value and configure explicit
-origins when deploying. Native Android and iOS Flutter apps do not enforce
-browser CORS.
+---
 
-Create a Python 3.12 virtual environment and install the backend:
+## 🧪 Tests
 
-```powershell
-Set-Location backend
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+### Backend
+
+```bash
+cd backend
+pytest tests/
+pytest tests/ -v  # Verbose
+pytest tests/test_auth.py  # Test spécifique
 ```
 
-Apply database migrations and start the API:
+### Mobile
 
-```powershell
-.\.venv\Scripts\alembic.exe upgrade head
-.\.venv\Scripts\python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The current database is at Alembic revision `0004_sha256_fixed_width`.
-`app.database.connection` creates SQLAlchemy's engine and `SessionLocal`;
-`get_db` provides request-scoped sessions. Firebase-authenticated requests set
-the verified UID transaction-locally for PostgreSQL row-level security.
-
-From a second terminal, check `http://127.0.0.1:8000/api/v1/health` or
-`http://127.0.0.1:8000/api/v1/health/database`. Both return HTTP 503 with a
-generic message if PostgreSQL is unavailable. Interactive API documentation is
-available at `http://127.0.0.1:8000/docs` and OpenAPI JSON at
-`http://127.0.0.1:8000/openapi.json`. Android
-emulators access the development host using `10.0.2.2`; the Flutter app uses
-`http://10.0.2.2:8000/api/v1` by default.
-
-## REST API
-
-The versioned API exposes authenticated user and learning-profile resources,
-courses, tasks, notes, flashcards, evaluations, calendar events, and
-notifications. Each record lookup and mutation is scoped to the Firebase UID
-from the verified ID token. `PUT /api/v1/users/me` updates application profile
-fields; email and credentials remain managed by Firebase Authentication.
-Deleting `/api/v1/users/me` deletes the Firebase account and the associated
-database records. Notifications are listed with `limit`/`offset` pagination
-and marked read through `PUT /api/v1/notifications/{id}/read`.
-
-Courses are private to the authenticated student and support `GET`, `POST`,
-`PUT`/`PATCH`, and `DELETE` at `/api/v1/courses`. Optional weekly schedule
-fields are `weekday` (ISO-style, Monday `0` through Sunday `6`),
-`start_time`, and `end_time` (local `HH:MM`); provide all three or none.
-`GET /api/v1/courses/schedule` lists scheduled courses for the current
-student. Overlapping courses on the same weekday return HTTP 409, while
-adjacent time intervals are allowed. The Flutter Courses page offers course
-details, create/edit/delete actions, and a weekday-filtered timetable.
-
-Flashcard decks support private CRUD at `/api/v1/flashcard-decks`. Associate a
-deck with a course, add or list its cards at
-`/api/v1/flashcard-decks/{deck_id}/cards`, and review an answer with
-`POST /api/v1/flashcards/{id}/review` and `{"is_correct": true|false}`.
-Review history is retained per card; `/api/v1/flashcard-decks/{deck_id}/progress`
-returns correct/incorrect counts, accuracy, reviewed cards, and mastered cards.
-Cards keep their spaced-repetition schedule as well as their review history.
-Deck provenance distinguishes manual cards from future AI-generated decks;
-generation itself is not enabled yet, and generated content can use the same
-ownership, editing, and review flow.
-
-Evaluations support private CRUD at `/api/v1/evaluations`, with an optional
-course, type, scheduled date, score, maximum score, and notes. Scores cannot
-exceed their maximum. `GET /api/v1/evaluations/summary` returns the average
-percentage for graded evaluations, per-course averages, and dated results for
-the Flutter progress chart. Both study-resource modules are exposed in the
-Flutter **Réviser** section and synchronized with the authenticated API.
-
-### Study sessions, machine learning and AI assistant
-
-All endpoints below are scoped to the Firebase UID of the verified ID token.
-
-- `GET|POST /api/v1/study-sessions`, `DELETE /api/v1/study-sessions/{id}`:
-  study sessions (start, end, focus rating 1-5) used by the models.
-- `GET /api/v1/ml/learning-profile|behavior|performance|recommendations`:
-  explainable models M1-M4. They return `insufficient_data` or generic
-  cold-start output instead of inventing predictions; confidence is never
-  "high". M3 uses the latest trained artifact when present, otherwise a
-  rules baseline. Optional training: `pip install -e ".[ml]"` then
-  `python -m app.ml.train` (writes versioned JSON artifacts).
-- `GET|PUT /api/v1/ai/consent`: explicit consent, required for every other
-  `/api/v1/ai/*` call (HTTP 403 otherwise). Only anonymous statistics are sent
-  to the provider.
-- `POST /api/v1/ai/profile/analyze`, `GET /api/v1/ai/insights`,
-  `POST|GET /api/v1/ai/recommendations`,
-  `PATCH /api/v1/ai/recommendations/{id}` (`accepted`, `modified` with edits,
-  `rejected`), `POST /api/v1/ai/chat`. Provider output is validated against a
-  strict schema (one retry); on failure recommendations fall back to labelled
-  rule-based items and chat returns HTTP 503. Every item exposes
-  `ai_generated` and a `notice`.
-- `POST /api/v1/users/me/devices`, `DELETE /api/v1/users/me/devices/{id}`:
-  FCM token registration; `POST /api/v1/notifications/test` sends a test push.
-  Invalid tokens are pruned after delivery attempts.
-- `POST /api/v1/auth/session`, `POST /api/v1/auth/logout-all`: session check
-  and revocation of all refresh tokens.
-- Requests are rate limited per client; sensitive actions are written to an
-  audit log.
-
-Configuration (see `backend/.env.example`): `LLM_PROVIDER`, `LLM_API_KEY`,
-`LLM_MODEL`, `LLM_BASE_URL` and the rate-limit settings. Without an LLM key the
-assistant degrades gracefully as described above.
-
-Apply the new table with `alembic upgrade head` (revision
-`0009_ai_recommendations`). Deploy `firestore.rules` with
-`firebase deploy --only firestore:rules`.
-
-The Flutter profile page links to **Analyses d’apprentissage** (ML results,
-AI recommendations with accept/modify/reject, chat, session timer), the
-**Questionnaire d’apprentissage** and **Confidentialité et réglages** (AI
-consent, push notifications, sign out of all devices). Push uses
-`firebase_messaging`; run `flutter pub get` after updating.
-
-## Tests
-
-Flutter checks (from `mobile\studymate_app`):
-
-```powershell
-flutter analyze
+```bash
+cd mobile/studymate_app
 flutter test
+flutter test test/specific_test.dart
 ```
 
-Backend tests (from `backend`):
+---
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest
+## 📱 Build et Déploiement
+
+### Build APK (Android)
+
+```bash
+cd mobile/studymate_app
+flutter build apk --release
+# APK généré : build/app/outputs/apk/release/app-release.apk
 ```
 
-## Git safety
+### Build IPA (iOS)
 
-Initialize the repository from the root with `git init`. Environment files,
-Firebase service-account keys, Android signing files, local Python virtual
-environments, and Flutter build outputs are excluded by `.gitignore`.
+```bash
+cd mobile/studymate_app
+flutter build ios --release
+# Suivez les instructions pour uploader sur App Store
+```
+
+### Build Web
+
+```bash
+cd mobile/studymate_app
+flutter build web --release
+# Distribution : build/web/
+```
+
+---
+
+## 📚 Documentation Supplémentaire
+
+### Application Mobile
+Voir `mobile/studymate_app/README.md` pour :
+- Installation détaillée
+- Guide des widgets
+- Personnalisation UI
+- Résolution de problèmes
+
+### Backend
+Voir la documentation API :
+- `http://localhost:8000/docs` (Swagger UI)
+- `http://localhost:8000/redoc` (ReDoc)
+
+---
+
+## 🆘 Résolution de Problèmes
+
+### Les animations ne fonctionnent pas
+
+```bash
+flutter clean
+flutter pub get
+flutter run --dart-define-from-file=dart_defines.local.json
+```
+
+### Erreur de base de données
+
+```bash
+# Vérifier que PostgreSQL est en cours d'exécution
+docker-compose ps
+
+# Vérifier la connexion
+psql -U studymate -d studymate
+```
+
+### Erreur Firebase
+
+- Vérifiez `dart_defines.local.json`
+- Vérifiez la clé API Firebase
+- Vérifiez la configuration Firebase Console
+
+### Erreur Backend
+
+```bash
+# Vérifier que l'API fonctionne
+curl http://localhost:8000/api/v1/health
+
+# Vérifier les logs
+# (dans le terminal où vous avez lancé uvicorn)
+```
+
+---
+
+## 🤝 Contribution
+
+Les contributions sont les bienvenues !
+
+1. Fork le projet
+2. Créer une branche (`git checkout -b feature/AmazingFeature`)
+3. Commit (`git commit -m 'Add AmazingFeature'`)
+4. Push (`git push origin feature/AmazingFeature`)
+5. Ouvrir une Pull Request
+
+---
+
+## 📄 Licence
+
+Ce projet est sous licence MIT. Voir `LICENSE` pour plus de détails.
+
+---
+
+## 🎉 Commandes Essentielles
+
+```bash
+# Installation Complète
+git clone https://github.com/yourusername/studymate.git
+cd studymate
+
+# Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1  # ou source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+# Mobile (dans un autre terminal)
+cd mobile/studymate_app
+flutter pub get
+flutter run --dart-define-from-file=dart_defines.local.json
+
+# Vérifier la santé
+curl http://localhost:8000/api/v1/health
+```
+
+---
+
+## 📞 Support
+
+Pour obtenir de l'aide :
+1. Consultez la documentation des composants
+2. Vérifiez les logs d'erreur
+3. Ouvrez une issue sur GitHub
+
+---
+
+## 🌟 Fonctionnalités Principales
+
+| Fonctionnalité | Backend | Mobile | Status |
+|---|---|---|---|
+| Authentification Firebase | ✅ | ✅ | ✅ Production |
+| Gestion des Cours | ✅ | ✅ | ✅ Production |
+| Gestion des Tâches | ✅ | ✅ | ✅ Production |
+| Prise de Notes | ✅ | ✅ | ✅ Production |
+| Assistant IA | ✅ | ✅ | ✅ Production |
+| Flashcards | ✅ | ⏳ | 🔄 En cours |
+| Gamification | ⏳ | ✅ | 🔄 En cours |
+| Statistiques | ✅ | ⏳ | 🔄 En cours |
+
+---
+
+**Créé avec ❤️ pour les étudiants qui veulent réussir** 📚✨
+
+Dernière mise à jour : 2026-11-07
+Version : 2.0
