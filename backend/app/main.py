@@ -1,4 +1,6 @@
+import asyncio
 import logging
+from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -12,12 +14,32 @@ from app.core.config import get_settings
 from app.core.exceptions import StudyMateError
 from app.core.logging import configure_logging
 from app.core.rate_limit import RateLimiter, RateLimitMiddleware
+from app.database.connection import SessionLocal
+from app.services.reminder_service import reminder_loop
 
 settings = get_settings()
 configure_logging(settings.log_level)
 logger = logging.getLogger("studymate.api")
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    """Démarre le planificateur de rappels d'événements avec l'API."""
+    task = None
+    if settings.reminder_scheduler_enabled:
+        task = asyncio.create_task(
+            reminder_loop(SessionLocal, settings.reminder_poll_seconds)
+        )
+    try:
+        yield
+    finally:
+        if task is not None:
+            task.cancel()
+            with suppress(asyncio.CancelledError):
+                await task
+
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.app_name,
     description=(
         "StudyMate API for student courses, tasks, notes, flashcards, and "
@@ -41,6 +63,10 @@ app = FastAPI(
         {"name": "study sessions", "description": "Focus and study sessions."},
         {"name": "machine learning", "description": "Learning profile, behavior, performance and recommendations (M1-M4)."},
         {"name": "ai assistant", "description": "Consent-gated generative AI features."},
+        {"name": "events", "description": "Exams, deadlines and reminders."},
+        {"name": "calendar", "description": "Unified calendar: events, courses and task deadlines."},
+        {"name": "places", "description": "Place search for event locations (Google Places)."},
+        {"name": "notifications", "description": "Notification centre and push delivery."},
     ],
 )
 
@@ -83,7 +109,7 @@ async def studymate_exception_handler(
     )
     return JSONResponse(
         status_code=error.status_code,
-        content={"detail": error.detail, "code": error.code},
+        content={"detail": error.detail, "code": error.code, **error.extra},
     )
 
 

@@ -196,6 +196,11 @@ CREATE TABLE IF NOT EXISTS events (
     starts_at timestamptz NOT NULL,
     ends_at timestamptz,
     location varchar(200),
+    latitude double precision,
+    longitude double precision,
+    status varchar(16) NOT NULL DEFAULT 'planned'
+        CHECK (status IN ('planned', 'done', 'cancelled')),
+    reminder_offsets jsonb NOT NULL DEFAULT '[]'::jsonb,
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
     CHECK (ends_at IS NULL OR ends_at >= starts_at),
@@ -457,6 +462,20 @@ CREATE INDEX IF NOT EXISTS ix_document_chunks_owner_document
 CREATE INDEX IF NOT EXISTS ix_chunk_embeddings_hnsw_cosine
     ON chunk_embeddings USING hnsw (embedding vector_cosine_ops);
 
+CREATE TABLE IF NOT EXISTS event_reminders (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_uid varchar(128) NOT NULL
+        REFERENCES users(firebase_uid) ON DELETE CASCADE,
+    event_id uuid NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    offset_minutes integer NOT NULL CHECK (offset_minutes >= 0),
+    remind_at timestamptz NOT NULL,
+    sent_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT uq_event_reminders_offset UNIQUE (event_id, offset_minutes)
+);
+CREATE INDEX IF NOT EXISTS ix_event_reminders_due
+    ON event_reminders (remind_at) WHERE sent_at IS NULL;
+
 -- RLS is defense in depth; the API must still verify Firebase tokens and
 -- scope queries. Set the verified UID transaction-locally on every request.
 DO $$
@@ -470,7 +489,7 @@ BEGIN
         'evaluations', 'events', 'notifications',
         'study_sessions', 'gamification', 'ai_insights', 'ai_recommendations',
         'notification_devices', 'documents', 'document_chunks',
-        'chunk_embeddings'
+        'chunk_embeddings', 'event_reminders'
     ] LOOP
         owner_column := CASE
             WHEN table_name = 'users' THEN 'firebase_uid'
@@ -499,5 +518,10 @@ BEGIN
     END LOOP;
 END
 $$;
+
+-- The reminder scheduler runs without a user: it may only READ the due queue.
+DROP POLICY IF EXISTS scheduler_read_due ON event_reminders;
+CREATE POLICY scheduler_read_due ON event_reminders FOR SELECT
+    USING (current_setting('app.scheduler', true) = 'on');
 
 COMMIT;

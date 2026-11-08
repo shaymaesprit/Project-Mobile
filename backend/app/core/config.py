@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     llm_model: str = "gpt-4o-mini"
     llm_base_url: str = "https://api.openai.com/v1"
     llm_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    reminder_scheduler_enabled: bool = True
+    reminder_poll_seconds: float = Field(default=30.0, ge=1, le=3600)
+    # Recherche de lieux : "photon" (OpenStreetMap, sans clé), "geoapify" (clé
+    # gratuite, sans carte bancaire) ou "google" (Places API, carte bancaire).
+    places_provider: Literal["photon", "geoapify", "google"] = "photon"
+    geoapify_api_key: SecretStr | None = None
+    google_maps_api_key: SecretStr | None = None
+    places_timeout_seconds: float = Field(default=8.0, gt=0, le=60)
     rate_limit_per_minute: int = Field(default=240, ge=0)
     rate_limit_ai_per_minute: int = Field(default=20, ge=0)
     cors_origin_regex: str | None = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"

@@ -2,6 +2,7 @@ from fastapi import Depends
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
+from app.core.config import get_settings
 from app.database.session import get_db
 from app.models.extended import Evaluation, FlashcardDeck, StudyEvent, StudySession
 from app.models.user import User
@@ -20,7 +21,10 @@ from app.repositories.notification_repository import NotificationRepository
 from app.repositories.flashcard_repository import FlashcardRepository
 from app.services.profile_service import ProfileService
 from app.services.evaluation_service import EvaluationService
+from app.services.calendar_service import CalendarService
+from app.services.event_ai_service import EventAIService
 from app.services.event_service import EventService
+from app.services.places_service import PlacesService
 from app.services.flashcard_service import FlashcardService
 from app.services.notification_service import NotificationService
 from app.services.owned_resource_service import OwnedResourceService
@@ -104,7 +108,37 @@ def get_event_service(
     from app.repositories.owned_resource_repository import OwnedResourceRepository
 
     db.info["firebase_uid"] = user.firebase_uid
-    return EventService(OwnedResourceRepository(db, StudyEvent))
+    return EventService(OwnedResourceRepository(db, StudyEvent), db)
+
+
+def get_calendar_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> CalendarService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return CalendarService(db)
+
+
+def get_places_service() -> PlacesService:
+    settings = get_settings()
+    secret = {
+        "google": settings.google_maps_api_key,
+        "geoapify": settings.geoapify_api_key,
+    }.get(settings.places_provider)
+    return PlacesService(
+        settings.places_provider,
+        secret.get_secret_value() if secret is not None else None,
+        settings.places_timeout_seconds,
+    )
+
+
+def get_event_ai_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    provider: LLMProvider | None = Depends(get_llm_provider),
+) -> EventAIService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return EventAIService(db, provider)
 
 
 def get_study_session_service(
