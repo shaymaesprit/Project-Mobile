@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Float,
     ForeignKey,
     ForeignKeyConstraint,
     Index,
@@ -234,6 +235,9 @@ class StudyEvent(Base):
         CheckConstraint(
             "ends_at IS NULL OR ends_at >= starts_at", name="ck_events_time_range"
         ),
+        CheckConstraint(
+            "status IN ('planned', 'done', 'cancelled')", name="ck_events_status"
+        ),
         UniqueConstraint("owner_uid", "id", name="uq_events_owner_id"),
         _course_owner_fk("events"),
         Index("ix_events_owner_starts", "owner_uid", "starts_at"),
@@ -254,10 +258,51 @@ class StudyEvent(Base):
     )
     ends_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     location: Mapped[str | None] = mapped_column(String(200))
+    latitude: Mapped[float | None] = mapped_column(Float)
+    longitude: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="planned", server_default=text("'planned'")
+    )
+    # Minutes avant le début auxquelles envoyer un rappel (ex. [1440, 60]).
+    reminder_offsets: Mapped[list] = mapped_column(
+        JSON_ARRAY, nullable=False, default=list, server_default=text("'[]'")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class EventReminder(Base):
+    """Un rappel planifié pour un événement (une ligne par décalage)."""
+
+    __tablename__ = "event_reminders"
+    __table_args__ = (
+        UniqueConstraint("event_id", "offset_minutes", name="uq_event_reminders_offset"),
+        CheckConstraint("offset_minutes >= 0", name="ck_event_reminders_offset"),
+        Index(
+            "ix_event_reminders_due",
+            "remind_at",
+            postgresql_where=text("sent_at IS NULL"),
+            sqlite_where=text("sent_at IS NULL"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    owner_uid: Mapped[str] = mapped_column(
+        ForeignKey("users.firebase_uid", ondelete="CASCADE"), nullable=False
+    )
+    event_id: Mapped[UUID] = mapped_column(
+        ForeignKey("events.id", ondelete="CASCADE"), nullable=False
+    )
+    offset_minutes: Mapped[int] = mapped_column(Integer, nullable=False)
+    remind_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 

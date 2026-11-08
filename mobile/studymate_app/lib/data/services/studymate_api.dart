@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import '../../core/config/api_config.dart';
 import '../models/ai_models.dart';
+import '../models/event_models.dart';
 import '../models/study_models.dart';
 
 typedef FirebaseTokenProvider = Future<String?> Function();
@@ -446,6 +447,132 @@ class StudyMateApi {
 
   Future<void> sendTestNotification() async {
     await _post<Map<String, dynamic>>('/notifications/test', data: null);
+  }
+
+  // ----- Événements, calendrier et notifications -------------------------
+
+  Future<List<StudyEvent>> getEvents() async {
+    final response = await _get<List<dynamic>>('/events');
+    return response.map((item) => StudyEvent.fromJson(_asJson(item))).toList();
+  }
+
+  Future<StudyEvent> getEvent(String id) async =>
+      StudyEvent.fromJson(await _get<Map<String, dynamic>>('/events/$id'));
+
+  Future<StudyEvent> createEvent(StudyEvent event, {bool force = false}) async {
+    final response = await _post<Map<String, dynamic>>(
+      force ? '/events?force=true' : '/events',
+      data: event.toPayload(),
+    );
+    return StudyEvent.fromJson(response);
+  }
+
+  Future<StudyEvent> updateEvent(StudyEvent event, {bool force = false}) async {
+    final response = await _put<Map<String, dynamic>>(
+      force ? '/events/${event.id}?force=true' : '/events/${event.id}',
+      data: event.toPayload(),
+    );
+    return StudyEvent.fromJson(response);
+  }
+
+  Future<void> deleteEvent(String id) async {
+    await _delete('/events/$id');
+  }
+
+  Future<List<EventConflictInfo>> checkEventConflicts({
+    required DateTime startsAt,
+    required String eventType,
+    DateTime? endsAt,
+    String? excludeId,
+  }) async {
+    final path = Uri(path: '/events/conflicts', queryParameters: {
+      'starts_at': startsAt.toUtc().toIso8601String(),
+      if (endsAt != null) 'ends_at': endsAt.toUtc().toIso8601String(),
+      'event_type': eventType,
+      if (excludeId != null) 'exclude_id': excludeId,
+    }).toString();
+    final response = await _get<Map<String, dynamic>>(path);
+    return (response['conflicts'] as List<dynamic>)
+        .map((item) => EventConflictInfo.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<List<CalendarItem>> getCalendar(DateTime from, DateTime to) async {
+    final path = Uri(path: '/calendar', queryParameters: {
+      'from': from.toUtc().toIso8601String(),
+      'to': to.toUtc().toIso8601String(),
+    }).toString();
+    final response = await _get<List<dynamic>>(path);
+    return response
+        .map((item) => CalendarItem.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<EventDraft> parseEventText(String text) async {
+    final response = await _post<Map<String, dynamic>>(
+      '/ai/events/parse',
+      data: {
+        'text': text,
+        'utc_offset_minutes': DateTime.now().timeZoneOffset.inMinutes,
+      },
+    );
+    return EventDraft.fromJson(response);
+  }
+
+  Future<List<PlaceSuggestion>> autocompletePlaces(
+    String query, {
+    String? sessionToken,
+  }) async {
+    final path = Uri(path: '/places/autocomplete', queryParameters: {
+      'q': query,
+      if (sessionToken != null) 'session_token': sessionToken,
+    }).toString();
+    final response = await _get<List<dynamic>>(path);
+    return response
+        .map((item) => PlaceSuggestion.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<PlaceDetails> getPlaceDetails(String placeId) async {
+    final path = Uri(
+      path: '/places/details',
+      queryParameters: {'place_id': placeId},
+    ).toString();
+    return PlaceDetails.fromJson(await _get<Map<String, dynamic>>(path));
+  }
+
+  Future<List<AppNotification>> getNotifications({
+    bool unreadOnly = false,
+    String? type,
+    int limit = 50,
+  }) async {
+    final path = Uri(path: '/notifications', queryParameters: {
+      'limit': '$limit',
+      if (unreadOnly) 'unread_only': 'true',
+      if (type != null) 'type': type,
+    }).toString();
+    final response = await _get<List<dynamic>>(path);
+    return response
+        .map((item) => AppNotification.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<int> getUnreadNotificationCount() async {
+    final response =
+        await _get<Map<String, dynamic>>('/notifications/unread-count');
+    return response['count'] as int;
+  }
+
+  Future<void> markNotificationRead(String id) async {
+    await _put<Map<String, dynamic>>('/notifications/$id/read', data: null);
+  }
+
+  Future<void> markAllNotificationsRead() async {
+    await _put<Map<String, dynamic>>('/notifications/read-all', data: null);
+  }
+
+  Future<void> deleteNotification(String id) async {
+    await _delete('/notifications/$id');
   }
 
   Future<void> logoutAllSessions() async {

@@ -25,6 +25,9 @@ def isolate_external_services(monkeypatch):
     """Never reach Firebase (Firestore/FCM/Storage) or keep rate-limit state in tests."""
     from app.services import firebase_service
 
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "reminder_scheduler_enabled", False)
     app.state.rate_limiter.reset()
     monkeypatch.setattr(firebase_service, "sync_notification", lambda *a, **k: True)
     monkeypatch.setattr(firebase_service, "sync_realtime_status", lambda *a, **k: True)

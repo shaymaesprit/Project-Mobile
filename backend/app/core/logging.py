@@ -18,6 +18,12 @@ def configure_logging(level: str) -> None:
                     "formatter": "standard",
                 },
             },
+            # httpx journalise l'URL complète de chaque requête (INFO), or certains
+            # fournisseurs (Gemini, Geoapify) placent la clé API dans l'URL.
+            "loggers": {
+                "httpx": {"level": "WARNING"},
+                "httpcore": {"level": "WARNING"},
+            },
             "root": {
                 "handlers": ["console"],
                 "level": level.upper(),

@@ -2,9 +2,11 @@ class StudyMateError(Exception):
     status_code = 400
     code = "studymate_error"
 
-    def __init__(self, detail: str) -> None:
+    def __init__(self, detail: str, extra: dict | None = None) -> None:
         super().__init__(detail)
         self.detail = detail
+        # Données structurées facultatives renvoyées avec l'erreur.
+        self.extra = extra or {}
 
 
 class ResourceNotFoundError(StudyMateError):
@@ -35,3 +37,13 @@ class AIConsentRequiredError(StudyMateError):
 class AIUnavailableError(StudyMateError):
     status_code = 503
     code = "ai_unavailable"
+
+
+class EventScheduleConflictError(StudyMateError):
+    status_code = 409
+    code = "event_schedule_conflict"
+
+
+class PlacesUnavailableError(StudyMateError):
+    status_code = 503
+    code = "places_unavailable"

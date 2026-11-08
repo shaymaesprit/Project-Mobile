@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.routes import (
     ai,
     auth,
+    calendar,
     courses,
     devices,
     evaluations,
@@ -13,6 +14,7 @@ from app.api.routes import (
     ml,
     notes,
     notifications,
+    places,
     profile,
     study_sessions,
     tasks,
@@ -46,3 +48,5 @@ api_router.include_router(ai.router, prefix="/ai", tags=["ai assistant"])
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
 )
+api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
+api_router.include_router(places.router, prefix="/places", tags=["places"])
