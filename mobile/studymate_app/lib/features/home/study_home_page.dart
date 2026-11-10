@@ -6,6 +6,9 @@ import '../../data/models/study_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
 import '../courses/course_management_page.dart';
+import '../events/events_calendar_page.dart';
+import '../events/events_controller.dart';
+import '../events/notifications_center_page.dart';
 import '../profile/profile_page.dart';
 import '../study/study_tools_page.dart';
 
@@ -42,6 +45,10 @@ class StudyHomePage extends StatefulWidget {
 class _StudyHomePageState extends State<StudyHomePage> {
   int _selectedIndex = 0;
   _TaskFilter _taskFilter = _TaskFilter.all;
+  late final EventsController _events = EventsController(
+    widget.controller.api,
+    userIdProvider: () => widget.user?.uid,
+  );
 
   bool get _isWide => MediaQuery.sizeOf(context).width >= 800;
 
@@ -61,10 +68,42 @@ class _StudyHomePageState extends State<StudyHomePage> {
     }
   }
 
+  @override
+  void dispose() {
+    _events.dispose();
+    super.dispose();
+  }
+
   void _loadData() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) widget.controller.loadForUser(widget.user);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await widget.controller.loadForUser(widget.user);
+      if (mounted && widget.user != null) _events.refreshUnread();
     });
+  }
+
+  Future<void> _openAgenda() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => EventsCalendarPage(
+          studyController: widget.controller,
+          events: _events,
+        ),
+      ),
+    );
+    if (mounted) _events.refreshUnread();
+  }
+
+  Future<void> _openNotifications() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => NotificationsCenterPage(
+          studyController: widget.controller,
+          events: _events,
+        ),
+      ),
+    );
+    if (mounted) _events.refreshUnread();
   }
 
   @override
@@ -117,6 +156,25 @@ class _StudyHomePageState extends State<StudyHomePage> {
               ],
             ),
             actions: [
+              if (widget.user != null) ...[
+                IconButton(
+                  tooltip: 'Agenda',
+                  onPressed: _openAgenda,
+                  icon: const Icon(Icons.event_note_outlined),
+                ),
+                ListenableBuilder(
+                  listenable: _events,
+                  builder: (context, _) => IconButton(
+                    tooltip: 'Notifications',
+                    onPressed: _openNotifications,
+                    icon: Badge(
+                      isLabelVisible: _events.unreadCount > 0,
+                      label: Text('${_events.unreadCount}'),
+                      child: const Icon(Icons.notifications_outlined),
+                    ),
+                  ),
+                ),
+              ],
               IconButton(
                 tooltip: 'Actualiser',
                 onPressed: widget.controller.isLoading ? null : _refresh,
@@ -394,6 +452,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
       return;
     }
     await widget.controller.loadForUser(widget.user);
+    _events.refreshUnread();
     if (widget.controller.errorMessage case final message?) {
       _showMessage(message);
     }

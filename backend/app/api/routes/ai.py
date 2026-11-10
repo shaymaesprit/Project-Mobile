@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_uid
-from app.api.dependencies import get_ai_service
+from app.api.dependencies import get_ai_service, get_event_ai_service
 from app.schemas.ai import (
     AIInsightResponse,
     AIRecommendationResponse,
@@ -12,8 +12,11 @@ from app.schemas.ai import (
     ChatResponse,
     ConsentRead,
     ConsentUpdate,
+    EventParseRequest,
 )
+from app.schemas.event import EventDraft
 from app.services.ai_service import AIService
+from app.services.event_ai_service import EventAIService
 
 router = APIRouter()
 
@@ -80,4 +83,19 @@ def update_recommendation(
 ):
     return service.update_recommendation(
         uid, recommendation_id, payload.model_dump(exclude_unset=True)
+    )
+
+
+@router.post("/events/parse", response_model=EventDraft)
+def parse_event(
+    payload: EventParseRequest,
+    uid: str = Depends(get_current_uid),
+    service: EventAIService = Depends(get_event_ai_service),
+) -> EventDraft:
+    """Transforme une phrase en brouillon d'événement (non enregistré)."""
+    return service.parse(
+        uid,
+        payload.text,
+        timezone_name=payload.timezone,
+        utc_offset_minutes=payload.utc_offset_minutes,
     )

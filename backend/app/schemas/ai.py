@@ -117,3 +117,18 @@ class AIInsightResponse(ApiSchema):
         self.ai_generated = (self.evidence or {}).get("source") == "ai"
         self.notice = AI_DISCLAIMER if self.ai_generated else RULES_NOTICE
         return self
+
+
+class EventParseRequest(ApiSchema):
+    text: str = Field(min_length=3, max_length=500)
+    timezone: str | None = Field(default=None, max_length=64)
+    # Décalage UTC de l'appareil (minutes), utilisé si aucun fuseau IANA n'est fourni.
+    utc_offset_minutes: int | None = Field(default=None, ge=-840, le=840)
+
+    @field_validator("text")
+    @classmethod
+    def strip_text(cls, value: str) -> str:
+        value = value.strip()
+        if len(value) < 3:
+            raise ValueError("Text must not be empty.")
+        return value

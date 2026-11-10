@@ -17,14 +17,21 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  flutter_map: ^8.1.1
   google_sign_in: ^7.2.0
   http: ^1.2.0
   image_picker: ^1.2.4
+  latlong2: ^0.9.1
   animated_text_kit: ^4.2.2
   flutter_animate: ^4.5.0
   lottie: ^3.1.0
+<<<<<<< HEAD
   sqflite: ^2.4.6
   path: ^1.9.1
+=======
+  sqflite: ^2.4.1
+  path: ^1.9.0
+>>>>>>> b7a7118cfc4af515b1ed0388a9eb6423ab592aa2
 
 dev_dependencies:
   flutter_test:

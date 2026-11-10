@@ -45,6 +45,15 @@ def sync_notification(uid: str, notification_id: str, data: dict[str, Any]) -> b
         return False
 
 
+def delete_notification(uid: str, notification_id: str) -> bool:
+    try:
+        _user_doc(uid).collection("notifications").document(notification_id).delete()
+        return True
+    except Exception as error:  # noqa: BLE001 - best effort
+        logger.warning("Firestore notification delete failed (%s)", type(error).__name__)
+        return False
+
+
 def sync_realtime_status(uid: str, status: dict[str, Any]) -> bool:
     try:
         _user_doc(uid).collection("realtime_status").document("current").set(
