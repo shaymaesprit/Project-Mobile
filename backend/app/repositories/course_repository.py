@@ -11,14 +11,22 @@ class CourseRepository:
     def __init__(self, db: Session) -> None:
         self._db = db
 
-    def list_for_owner(self, owner_uid: str) -> list[Course]:
-        return list(
-            self._db.scalars(
-                select(Course)
-                .where(Course.owner_uid == owner_uid)
-                .order_by(Course.title)
-            )
+    def list_for_owner(
+        self,
+        owner_uid: str,
+        semestre: str | None = None,
+        type_cours: str | None = None,
+    ) -> list[Course]:
+        from app.models.course import CourseType
+        stmt = (
+            select(Course)
+            .where(Course.owner_uid == owner_uid)
         )
+        if semestre is not None:
+            stmt = stmt.where(Course.semestre == semestre)
+        if type_cours is not None:
+            stmt = stmt.where(Course.type_cours == CourseType(type_cours))
+        return list(self._db.scalars(stmt.order_by(Course.title)))
 
     def list_schedule_for_owner(self, owner_uid: str) -> list[Course]:
         return list(

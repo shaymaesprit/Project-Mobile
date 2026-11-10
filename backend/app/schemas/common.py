@@ -3,6 +3,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.models.course import CourseType
+
 
 class ApiSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -25,6 +27,11 @@ class CourseRead(ApiSchema):
     weekday: int | None
     start_time: time | None
     end_time: time | None
+    type_cours: CourseType | None = None
+    semestre: str | None = None
+    description: str | None = None
+    coefficient: float | None = None
+    difficulte_percue: int | None = None
     created_at: datetime
     updated_at: datetime
 

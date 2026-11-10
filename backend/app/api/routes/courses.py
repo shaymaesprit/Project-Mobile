@@ -7,6 +7,7 @@ from app.api.dependencies import get_course_service
 from app.models.course import Course
 from app.models.user import User
 from app.schemas.course import CourseCreate, CourseResponse, CourseUpdate
+from app.schemas.schedule import CourseStats
 from app.services.course_service import CourseService
 
 router = APIRouter()
@@ -22,10 +23,21 @@ def read_weekly_schedule(
 
 @router.get("", response_model=list[CourseResponse])
 def list_courses(
+    semestre: str | None = None,
+    type_cours: str | None = None,
     service: CourseService = Depends(get_course_service),
     user: User = Depends(get_current_user),
 ) -> list[Course]:
-    return service.list_courses(user.firebase_uid)
+    return service.list_courses(user.firebase_uid, semestre=semestre, type_cours=type_cours)
+
+
+@router.get("/{course_id}/stats", response_model=CourseStats)
+def read_course_stats(
+    course_id: UUID,
+    service: CourseService = Depends(get_course_service),
+    user: User = Depends(get_current_user),
+) -> CourseStats:
+    return service.get_course_stats(course_id, user.firebase_uid)
 
 
 @router.get("/{course_id}", response_model=CourseResponse)

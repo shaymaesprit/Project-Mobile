@@ -35,3 +35,18 @@ class AIConsentRequiredError(StudyMateError):
 class AIUnavailableError(StudyMateError):
     status_code = 503
     code = "ai_unavailable"
+
+
+class ShareExpiredError(StudyMateError):
+    status_code = 410
+    code = "share_expired"
+
+
+class PermissionDeniedError(StudyMateError):
+    status_code = 403
+    code = "permission_denied"
+
+
+class PayloadTooLargeError(StudyMateError):
+    status_code = 413
+    code = "payload_too_large"

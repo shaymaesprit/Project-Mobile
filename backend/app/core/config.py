@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     llm_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
     rate_limit_per_minute: int = Field(default=240, ge=0)
     rate_limit_ai_per_minute: int = Field(default=20, ge=0)
+    reminder_scheduler_enabled: bool = True
+    reminder_poll_seconds: int = Field(default=30, ge=5)
+    places_provider: str = "photon"
+    geoapify_api_key: str = ""
+    google_maps_api_key: str = ""
     cors_origin_regex: str | None = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     cors_origins: list[str] = Field(
         default_factory=lambda: [
@@ -32,7 +37,10 @@ class Settings(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).resolve().parents[2] / ".env",
+        env_file=(
+            Path(__file__).resolve().parents[3] / ".env",
+            Path(__file__).resolve().parents[2] / ".env",
+        ),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",

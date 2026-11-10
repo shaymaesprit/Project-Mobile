@@ -31,3 +31,9 @@ class User(Base):
     notes: Mapped[list["Note"]] = relationship(
         back_populates="owner", cascade="all, delete-orphan"
     )
+    timetable_shares: Mapped[list["TimetableShare"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )
+    timetable_entries: Mapped[list["TimetableEntry"]] = relationship(
+        back_populates="owner", cascade="all, delete-orphan"
+    )

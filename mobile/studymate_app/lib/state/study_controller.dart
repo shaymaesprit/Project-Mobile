@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../data/local/local_database.dart';
 import '../data/models/study_models.dart';
 import '../data/services/studymate_api.dart';
 import '../features/notifications/push_service.dart';
@@ -9,9 +10,15 @@ class StudyController extends ChangeNotifier {
   StudyController({
     required StudyMateApi api,
     this.push,
-  }) : _api = api;
+    LocalDatabase? localDb,
+  })  : _api = api,
+        _db = localDb ?? LocalDatabase.instance;
+
+  /// Expose the local database so callers can run direct queries (e.g. stats).
+  LocalDatabase get localDb => _db;
 
   final StudyMateApi _api;
+  final LocalDatabase _db;
   final PushService? push;
 
   StudyMateApi get api => _api;
@@ -115,26 +122,37 @@ class StudyController extends ChangeNotifier {
 
   Future<void> loadForUser(User? user) async {
     if (user == null) {
-      _clearAccountData();
+      await _clearAccountData();
       return;
     }
 
     _hasBackendSession = true;
-    _isLoading = true;
     _errorMessage = null;
     _isProfileLoading = true;
     _profileErrorMessage = null;
     _userProfile = null;
     _studentProfile = null;
-    _courses = const [];
-    _weeklySchedule = const [];
-    _tasks = const [];
-    _notes = const [];
-    _flashcardDecks = const [];
-    _evaluations = const [];
     _evaluationSummary = null;
+
+    // ── Step 1 : load from SQLite immediately (cache-first) ──────────────
+    final cached = await Future.wait([
+      _db.getCourses(),
+      _db.getTasks(),
+      _db.getNotes(),
+      _db.getFlashcardDecks(),
+      _db.getEvaluations(),
+    ]);
+    _courses = cached[0] as List<StudyCourse>;
+    _tasks = cached[1] as List<StudyTask>;
+    _notes = cached[2] as List<StudyNote>;
+    _flashcardDecks = cached[3] as List<StudyFlashcardDeck>;
+    _evaluations = cached[4] as List<StudyEvaluation>;
+
+    // Show cached data immediately while we fetch from network.
+    _isLoading = _courses.isEmpty && _tasks.isEmpty;
     notifyListeners();
 
+    // ── Step 2 : sync from API in background ─────────────────────────────
     try {
       await _api.checkHealth();
       _userProfile = await _api.getCurrentUser();
@@ -157,9 +175,19 @@ class StudyController extends ChangeNotifier {
       _evaluations = results[6] as List<StudyEvaluation>;
       _evaluationSummary = results[7] as StudyEvaluationSummary;
       _lastSyncedAt = DateTime.now();
+
+      // ── Step 3 : persist fresh data into SQLite ───────────────────────
+      await Future.wait([
+        _db.upsertCourses(_courses),
+        _db.upsertTasks(_tasks),
+        _db.upsertNotes(_notes),
+        _db.upsertDecks(_flashcardDecks),
+        _db.upsertEvaluations(_evaluations),
+      ]);
     } on StudyMateApiException catch (error) {
       _errorMessage = error.message;
       _profileErrorMessage = error.message;
+      // Keep showing cached data — don't blank the UI.
     } finally {
       _isLoading = false;
       _isProfileLoading = false;
@@ -177,6 +205,7 @@ class StudyController extends ChangeNotifier {
     try {
       final saved = await _api.createTask(task);
       _tasks = [saved, ..._tasks];
+      await _db.upsertTask(saved);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -195,6 +224,7 @@ class StudyController extends ChangeNotifier {
     try {
       final saved = await _api.updateTask(_tasks[index]);
       _replaceTask(index, saved);
+      await _db.upsertTask(saved);
       _clearError();
     } on StudyMateApiException catch (error) {
       _replaceTask(index, previous);
@@ -224,6 +254,7 @@ class StudyController extends ChangeNotifier {
         endTime: endTime,
       );
       _courses = [course, ..._courses];
+      await _db.upsertCourse(course);
       await _refreshWeeklySchedule();
       _clearError();
     } on StudyMateApiException catch (error) {
@@ -259,6 +290,7 @@ class StudyController extends ChangeNotifier {
         for (final item in _courses)
           if (item.id == saved.id) saved else item,
       ];
+      await _db.upsertCourse(saved);
       await _refreshWeeklySchedule();
       _clearError();
     } on StudyMateApiException catch (error) {
@@ -275,6 +307,7 @@ class StudyController extends ChangeNotifier {
       _courses = _courses.where((item) => item.id != course.id).toList();
       _weeklySchedule =
           _weeklySchedule.where((item) => item.id != course.id).toList();
+      await _db.deleteCourse(course.id);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -296,6 +329,7 @@ class StudyController extends ChangeNotifier {
     try {
       final saved = await _api.createNote(note);
       _notes = [saved, ..._notes];
+      await _db.upsertNote(saved);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -309,6 +343,7 @@ class StudyController extends ChangeNotifier {
     try {
       await _api.deleteNote(note.id);
       _notes = _notes.where((item) => item.id != note.id).toList();
+      await _db.deleteNote(note.id);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -336,6 +371,7 @@ class StudyController extends ChangeNotifier {
     try {
       final saved = await _api.createFlashcardDeck(deck);
       _flashcardDecks = [saved, ..._flashcardDecks];
+      await _db.upsertDeck(saved);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -366,6 +402,7 @@ class StudyController extends ChangeNotifier {
         for (final item in _flashcardDecks)
           if (item.id == saved.id) saved else item,
       ];
+      await _db.upsertDeck(saved);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -380,6 +417,7 @@ class StudyController extends ChangeNotifier {
       await _api.deleteFlashcardDeck(deck.id);
       _flashcardDecks =
           _flashcardDecks.where((item) => item.id != deck.id).toList();
+      await _db.deleteDeck(deck.id);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -391,9 +429,14 @@ class StudyController extends ChangeNotifier {
   Future<List<StudyFlashcard>> getFlashcards(String deckId) async {
     _requireBackendSession();
     try {
-      return await _api.getFlashcards(deckId);
+      final cards = await _api.getFlashcards(deckId);
+      await _db.upsertFlashcards(cards);
+      return cards;
     } on StudyMateApiException catch (error) {
       _setError(error);
+      // Fallback to local cache when offline.
+      final cached = await _db.getFlashcards(deckId);
+      if (cached.isNotEmpty) return cached;
       rethrow;
     }
   }
@@ -446,6 +489,7 @@ class StudyController extends ChangeNotifier {
     _requireBackendSession();
     try {
       await _api.deleteFlashcard(flashcard.id);
+      await _db.deleteFlashcard(flashcard.id);
       _clearError();
     } on StudyMateApiException catch (error) {
       _setError(error);
@@ -464,6 +508,7 @@ class StudyController extends ChangeNotifier {
         flashcardId: flashcard.id,
         isCorrect: isCorrect,
       );
+      await _db.upsertFlashcard(result.flashcard);
       _clearError();
       notifyListeners();
       return result;
@@ -499,6 +544,7 @@ class StudyController extends ChangeNotifier {
     try {
       final saved = await _api.createEvaluation(evaluation);
       _evaluations = [saved, ..._evaluations];
+      await _db.upsertEvaluation(saved);
       await _refreshEvaluationSummary();
       _clearError();
     } on StudyMateApiException catch (error) {
@@ -516,6 +562,7 @@ class StudyController extends ChangeNotifier {
         for (final item in _evaluations)
           if (item.id == saved.id) saved else item,
       ];
+      await _db.upsertEvaluation(saved);
       await _refreshEvaluationSummary();
       _clearError();
     } on StudyMateApiException catch (error) {
@@ -531,6 +578,7 @@ class StudyController extends ChangeNotifier {
       await _api.deleteEvaluation(evaluation.id);
       _evaluations =
           _evaluations.where((item) => item.id != evaluation.id).toList();
+      await _db.deleteEvaluation(evaluation.id);
       await _refreshEvaluationSummary();
       _clearError();
     } on StudyMateApiException catch (error) {
@@ -540,7 +588,7 @@ class StudyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _clearAccountData() {
+  Future<void> _clearAccountData() async {
     _hasBackendSession = false;
     _isLoading = false;
     _isProfileLoading = false;
@@ -552,6 +600,11 @@ class StudyController extends ChangeNotifier {
     _weeklySchedule = const [];
     _tasks = const [];
     _notes = const [];
+    _flashcardDecks = const [];
+    _evaluations = const [];
+    _evaluationSummary = null;
+    // Wipe local SQLite cache on sign-out for privacy.
+    await _db.clearAll();
     notifyListeners();
   }
 

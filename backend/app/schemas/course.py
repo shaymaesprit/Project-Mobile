@@ -2,6 +2,7 @@ from datetime import time
 
 from pydantic import Field, field_validator, model_validator
 
+from app.models.course import CourseType
 from app.schemas.common import ApiSchema, CourseRead
 
 
@@ -39,6 +40,12 @@ class CourseCreate(ApiSchema):
     weekday: int | None = Field(default=None, ge=0, le=6)
     start_time: time | None = None
     end_time: time | None = None
+    # Extended fields
+    type_cours: CourseType | None = None
+    semestre: str | None = Field(default=None, max_length=20)
+    description: str | None = None
+    coefficient: float | None = Field(default=None, gt=0)
+    difficulte_percue: int | None = Field(default=None, ge=1, le=5)
 
     @field_validator("title")
     @classmethod
@@ -60,6 +67,12 @@ class CourseUpdate(ApiSchema):
     weekday: int | None = Field(default=None, ge=0, le=6)
     start_time: time | None = None
     end_time: time | None = None
+    # Extended fields
+    type_cours: CourseType | None = None
+    semestre: str | None = Field(default=None, max_length=20)
+    description: str | None = None
+    coefficient: float | None = Field(default=None, gt=0)
+    difficulte_percue: int | None = Field(default=None, ge=1, le=5)
 
     @field_validator("title")
     @classmethod

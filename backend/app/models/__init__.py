@@ -1,4 +1,6 @@
 from app.models.course import Course
+from app.models.timetable import TimetableEntry
+from app.models.timetable_share import TimetableShare
 from app.models.extended import (
     AIInsight,
     AIRecommendation,
@@ -39,5 +41,7 @@ __all__ = [
     "StudyEvent",
     "StudySession",
     "StudyTask",
+    "TimetableEntry",
+    "TimetableShare",
     "User",
 ]

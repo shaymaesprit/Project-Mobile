@@ -6,11 +6,13 @@ from app.database.session import get_db
 from app.models.extended import Evaluation, FlashcardDeck, StudyEvent, StudySession
 from app.models.user import User
 from app.repositories.course_repository import CourseRepository
+from app.repositories.timetable_repository import TimetableRepository
 from app.repositories.health_repository import HealthRepository
 from app.repositories.note_repository import NoteRepository
 from app.repositories.task_repository import TaskRepository
 from app.repositories.user_repository import UserRepository
 from app.services.course_service import CourseService
+from app.services.timetable_service import TimetableService
 from app.services.health_service import HealthService
 from app.services.note_service import NoteService
 from app.services.task_service import TaskService
@@ -34,6 +36,10 @@ def get_health_service(db: Session = Depends(get_db)) -> HealthService:
 
 def get_course_service(db: Session = Depends(get_db)) -> CourseService:
     return CourseService(CourseRepository(db))
+
+
+def get_timetable_service(db: Session = Depends(get_db)) -> TimetableService:
+    return TimetableService(TimetableRepository(db), CourseRepository(db))
 
 
 def get_task_service(db: Session = Depends(get_db)) -> TaskService:

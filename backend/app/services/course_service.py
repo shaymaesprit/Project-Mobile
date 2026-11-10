@@ -15,8 +15,13 @@ class CourseService:
     def __init__(self, repository: CourseRepository) -> None:
         self._repository = repository
 
-    def list_courses(self, owner_uid: str) -> list[Course]:
-        return self._repository.list_for_owner(owner_uid)
+    def list_courses(
+        self,
+        owner_uid: str,
+        semestre: str | None = None,
+        type_cours: str | None = None,
+    ) -> list[Course]:
+        return self._repository.list_for_owner(owner_uid, semestre=semestre, type_cours=type_cours)
 
     def list_schedule(self, owner_uid: str) -> list[Course]:
         return self._repository.list_schedule_for_owner(owner_uid)
@@ -50,6 +55,22 @@ class CourseService:
     def delete_course(self, course_id: UUID, owner_uid: str) -> None:
         course = self.get_course(course_id, owner_uid)
         self._repository.delete(course)
+
+    def get_course_stats(self, course_id: UUID, owner_uid: str):
+        from app.schemas.schedule import CourseStats
+        course = self.get_course(course_id, owner_uid)
+        duration_minutes = 0
+        if course.start_time and course.end_time:
+            start = course.start_time.hour * 60 + course.start_time.minute
+            end = course.end_time.hour * 60 + course.end_time.minute
+            duration_minutes = max(0, end - start)
+        hours_per_week = duration_minutes / 60.0
+        return CourseStats(
+            course_id=course.id,
+            title=course.title,
+            hours_per_week=hours_per_week,
+            percentage=100.0,
+        )
 
     def _validate_schedule(
         self,
