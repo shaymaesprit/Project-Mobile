@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'core/config/firebase_config.dart';
+import 'data/local/events_local_db.dart';
 import 'data/services/studymate_api.dart';
 import 'features/auth/change_password_page.dart';
 import 'features/auth/email_verification_page.dart';
@@ -183,7 +184,11 @@ class _AppGateState extends State<_AppGate> {
           );
         }
         final user = snapshot.data;
-        if (user == null) return SignInPage(auth: auth, api: widget.api);
+        if (user == null) {
+          // Session fermée (expiration, autre appareil…) : purge de sécurité.
+          EventsLocalDb.instance.clearAll().catchError((Object _) {});
+          return SignInPage(auth: auth, api: widget.api);
+        }
         if (StudyMateAuthService.needsEmailVerification(user)) {
           return EmailVerificationPage(
             auth: auth,
@@ -209,6 +214,11 @@ class _AppGateState extends State<_AppGate> {
 
   Future<void> _signOut(FirebaseAuth auth) async {
     _pushUid = null;
+    // Sécurité : on vide la base SQLite locale avant de fermer la session,
+    // sinon un autre étudiant sur ce téléphone verrait ces données.
+    try {
+      await EventsLocalDb.instance.clearAll();
+    } catch (_) {}
     await widget.controller.push?.disable();
     await StudyMateAuthService.signOut(auth);
   }

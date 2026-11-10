@@ -80,3 +80,50 @@ String relativeTime(DateTime value) {
   if (diff.inDays < 7) return 'Il y a ${diff.inDays} j';
   return '${value.day}/${value.month}/${value.year}';
 }
+
+
+/// Bandeau « Hors ligne – données enregistrées le … » affiché quand l'API est
+/// injoignable et que l'écran montre les données SQLite.
+class OfflineBanner extends StatelessWidget {
+  const OfflineBanner({super.key, required this.lastSyncedAt});
+
+  final DateTime? lastSyncedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final saved = lastSyncedAt;
+    final text = saved == null
+        ? 'Hors ligne – aucune donnée enregistrée'
+        : 'Hors ligne – données enregistrées le '
+            '${two(saved.day)}/${two(saved.month)}/${saved.year} '
+            'à ${formatTime(saved)}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Material(
+        color: scheme.tertiaryContainer,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              Icon(Icons.cloud_off_outlined,
+                  size: 18, color: scheme.onTertiaryContainer),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: scheme.onTertiaryContainer,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

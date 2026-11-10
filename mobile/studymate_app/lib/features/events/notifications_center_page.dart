@@ -115,6 +115,8 @@ class _NotificationsCenterPageState extends State<NotificationsCenterPage> {
                 ),
               ),
               if (_events.isLoading) const LinearProgressIndicator(minHeight: 2),
+              if (_events.isOffline)
+                OfflineBanner(lastSyncedAt: _events.lastSyncedAt),
               if (_events.errorMessage != null)
                 Padding(
                   padding: const EdgeInsets.all(12),
