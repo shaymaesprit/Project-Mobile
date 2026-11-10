@@ -10,7 +10,6 @@ class DemoData {
         code: 'MATH301',
         professor: 'Dr. Marie Dupont',
         room: 'A-102',
-        credits: 4,
       ),
       StudyCourse(
         id: '2',
@@ -18,7 +17,6 @@ class DemoData {
         code: 'PHYS401',
         professor: 'Prof. Jean Martin',
         room: 'B-205',
-        credits: 3,
       ),
       StudyCourse(
         id: '3',
@@ -26,7 +24,6 @@ class DemoData {
         code: 'INFO501',
         professor: 'Dr. Sophie Bernard',
         room: 'C-301',
-        credits: 5,
       ),
       StudyCourse(
         id: '4',
@@ -34,7 +31,6 @@ class DemoData {
         code: 'CHEM202',
         professor: 'Prof. Pierre Dubois',
         room: 'D-104',
-        credits: 4,
       ),
       StudyCourse(
         id: '5',
@@ -42,7 +38,6 @@ class DemoData {
         code: 'HIST301',
         professor: 'Dr. Claire Rousseau',
         room: 'E-201',
-        credits: 3,
       ),
     ];
   }
@@ -55,7 +50,7 @@ class DemoData {
         description: 'Finir les exercices 12-20 et préparer la présentation',
         priority: 'high',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 2)),
+        deadline: DateTime.now().add(const Duration(days: 2)),
       ),
       StudyTask(
         id: '2',
@@ -63,7 +58,7 @@ class DemoData {
         description: 'Relire les notes et faire les exercices pratiques',
         priority: 'high',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 1)),
+        deadline: DateTime.now().add(const Duration(days: 1)),
       ),
       StudyTask(
         id: '3',
@@ -71,7 +66,7 @@ class DemoData {
         description: 'Prendre des notes et préparer un résumé',
         priority: 'medium',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 5)),
+        deadline: DateTime.now().add(const Duration(days: 5)),
       ),
       StudyTask(
         id: '4',
@@ -79,7 +74,7 @@ class DemoData {
         description: 'Rédiger le rapport du laboratoire de la semaine dernière',
         priority: 'medium',
         isCompleted: true,
-        dueDate: DateTime.now().subtract(const Duration(days: 1)),
+        deadline: DateTime.now().subtract(const Duration(days: 1)),
       ),
       StudyTask(
         id: '5',
@@ -87,7 +82,7 @@ class DemoData {
         description: 'Réviser le code et préparer les commentaires',
         priority: 'low',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 7)),
+        deadline: DateTime.now().add(const Duration(days: 7)),
       ),
       StudyTask(
         id: '6',
@@ -95,7 +90,7 @@ class DemoData {
         description: 'Créer les slides et répéter',
         priority: 'high',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 3)),
+        deadline: DateTime.now().add(const Duration(days: 3)),
       ),
       StudyTask(
         id: '7',
@@ -103,7 +98,7 @@ class DemoData {
         description: 'Compléter tous les exercices de la série',
         priority: 'medium',
         isCompleted: true,
-        dueDate: DateTime.now().subtract(const Duration(days: 2)),
+        deadline: DateTime.now().subtract(const Duration(days: 2)),
       ),
       StudyTask(
         id: '8',
@@ -111,7 +106,7 @@ class DemoData {
         description: 'Article sur la mécanique quantique',
         priority: 'low',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 10)),
+        deadline: DateTime.now().add(const Duration(days: 10)),
       ),
       StudyTask(
         id: '9',
@@ -119,7 +114,7 @@ class DemoData {
         description: 'Faire le quiz en ligne sur le chapitre 4',
         priority: 'medium',
         isCompleted: true,
-        dueDate: DateTime.now().subtract(const Duration(days: 3)),
+        deadline: DateTime.now().subtract(const Duration(days: 3)),
       ),
       StudyTask(
         id: '10',
@@ -127,7 +122,7 @@ class DemoData {
         description: 'Session de groupe pour préparer l\'examen',
         priority: 'high',
         isCompleted: false,
-        dueDate: DateTime.now().add(const Duration(days: 4)),
+        deadline: DateTime.now().add(const Duration(days: 4)),
       ),
     ];
   }

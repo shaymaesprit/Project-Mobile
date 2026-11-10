@@ -96,7 +96,6 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     decoration: const InputDecoration(
                       labelText: 'Email',
                       prefixIcon: Icon(Icons.mail_outline),
-                      border: OutlineInputBorder(),
                     ),
                   ),
                   const SizedBox(height: 16),

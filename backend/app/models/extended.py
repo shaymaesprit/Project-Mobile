@@ -553,6 +553,7 @@ class Document(Base):
     mime_type: Mapped[str | None] = mapped_column(String(127))
     file_size_bytes: Mapped[int | None] = mapped_column(BigInteger)
     sha256: Mapped[str | None] = mapped_column(CHAR(64))
+    page_count: Mapped[int | None] = mapped_column(Integer)
     processing_status: Mapped[str] = mapped_column(
         String(16), nullable=False, default="pending", server_default=text("'pending'")
     )

@@ -27,13 +27,17 @@ class Settings(BaseSettings):
     geoapify_api_key: SecretStr | None = None
     google_maps_api_key: SecretStr | None = None
     places_timeout_seconds: float = Field(default=8.0, gt=0, le=60)
+    # Jours fériés (API Nager.Date) : code pays ISO 3166-1 alpha-2.
+    holidays_country: str = Field(default="TN", min_length=2, max_length=2)
+    # URL publique de l'API, utilisée dans les QR codes de partage. Par défaut
+    # on reprend l'adresse par laquelle le client a joint l'API.
+    public_api_url: str | None = None
+    # PDF de cours : stockés sur le disque du serveur (jamais le nom choisi
+    # par l'utilisateur), avec une taille maximale par fichier.
+    documents_dir: Path = Path(__file__).resolve().parents[2] / "storage" / "documents"
+    document_max_mb: int = Field(default=20, ge=1, le=100)
     rate_limit_per_minute: int = Field(default=240, ge=0)
     rate_limit_ai_per_minute: int = Field(default=20, ge=0)
-    reminder_scheduler_enabled: bool = True
-    reminder_poll_seconds: int = Field(default=30, ge=5)
-    places_provider: str = "photon"
-    geoapify_api_key: str = ""
-    google_maps_api_key: str = ""
     cors_origin_regex: str | None = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     cors_origins: list[str] = Field(
         default_factory=lambda: [

@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import '../../data/local/events_local_db.dart';
 import '../../data/models/event_models.dart';
 import '../../data/services/studymate_api.dart';
+import '../../data/sync/offline_outbox.dart';
+import '../../data/sync/sync_service.dart';
 
 /// État de la gestion Événements & Notifications (calendrier + centre de
 /// notifications).
@@ -15,8 +17,15 @@ class EventsController extends ChangeNotifier {
     this._api, {
     String? Function()? userIdProvider,
     EventsLocalDb? localDb,
+    SyncService? sync,
   })  : _userIdProvider = userIdProvider,
-        _db = localDb ?? EventsLocalDb.instance;
+        _db = localDb ?? EventsLocalDb.instance,
+        _sync = sync {
+    sync?.onCreated(_onSyncCreated);
+    sync?.onRejected(_onSyncRejected);
+  }
+
+  final SyncService? _sync;
 
   final StudyMateApi _api;
   final String? Function()? _userIdProvider;
@@ -105,7 +114,7 @@ class EventsController extends ChangeNotifier {
     try {
       final remote = await _api.getCalendar(from, to);
       _isOffline = false;
-      _items = remote;
+      _items = uid == null ? remote : await _overlayPending(uid, remote);
       if (uid != null) {
         try {
           await _db.replaceCalendarRange(uid, from, to, remote);
@@ -184,6 +193,125 @@ class EventsController extends ChangeNotifier {
       _items = _items.where((i) => !(i.kind == 'event' && i.id == id)).toList();
       _notify();
     } catch (_) {}
+  }
+
+
+  // ══════════════════════════════════════════════════════════════════════
+  // Hors ligne : création / modification / suppression mises en file.
+  // ══════════════════════════════════════════════════════════════════════
+
+  static CalendarItem _itemFor(StudyEvent event) => CalendarItem(
+        kind: 'event',
+        id: event.id,
+        title: event.title,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        category: event.eventType,
+        status: event.status,
+        location: event.location,
+      );
+
+  static StudyEvent _withId(StudyEvent event, String id) => StudyEvent(
+        id: id,
+        title: event.title,
+        eventType: event.eventType,
+        startsAt: event.startsAt,
+        endsAt: event.endsAt,
+        description: event.description,
+        courseId: event.courseId,
+        location: event.location,
+        latitude: event.latitude,
+        longitude: event.longitude,
+        status: event.status,
+        reminderOffsets: event.reminderOffsets,
+      );
+
+  /// Enregistre l'événement sur le téléphone et le met en file d'attente.
+  /// Renvoie la version locale (identifiant `local-…` pour une création).
+  Future<StudyEvent> saveOffline(StudyEvent candidate, {required bool isNew}) async {
+    final uid = _uid;
+    final sync = _sync;
+    if (uid == null || sync == null) {
+      throw const StudyMateApiException('Connecte-toi pour enregistrer hors ligne.');
+    }
+    final event = isNew ? _withId(candidate, newLocalId()) : candidate;
+    await _db.upsertEvent(uid, event);
+    final item = _itemFor(event);
+    await _db.upsertCalendarItem(uid, item);
+    _items = [
+      for (final existing in _items)
+        if (!(existing.kind == 'event' && existing.id == event.id)) existing,
+      item,
+    ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
+    _notify();
+    await sync.enqueue(
+      entity: 'event',
+      op: isNew ? OutboxOp.create : OutboxOp.update,
+      entityId: event.id,
+      payload: event.toPayload(),
+    );
+    return event;
+  }
+
+  /// Supprime localement et met la suppression en file d'attente.
+  Future<void> deleteOffline(String id) async {
+    await forgetEvent(id);
+    await _sync?.enqueue(entity: 'event', op: OutboxOp.delete, entityId: id);
+  }
+
+  Future<void> _onSyncCreated(
+    String entity,
+    String localId,
+    Map<String, dynamic> json,
+  ) async {
+    final uid = _uid;
+    if (entity != 'event' || uid == null) return;
+    final saved = StudyEvent.fromJson(json);
+    try {
+      await _db.deleteEvent(uid, localId);
+      await _db.upsertEvent(uid, saved);
+      await _db.upsertCalendarItem(uid, _itemFor(saved));
+    } catch (_) {}
+    _items = [
+      for (final item in _items)
+        item.kind == 'event' && item.id == localId ? _itemFor(saved) : item,
+    ];
+    _notify();
+  }
+
+  Future<void> _onSyncRejected(OutboxEntry entry, String message) async {
+    if (entry.entity != 'event') return;
+    _errorMessage = _sync?.takeLastRejection() ?? message;
+    if (entry.op == OutboxOp.create) await forgetEvent(entry.entityId);
+    _notify();
+  }
+
+  /// Les événements encore en file d'attente restent visibles après un
+  /// rechargement depuis le serveur.
+  Future<List<CalendarItem>> _overlayPending(
+    String uid,
+    List<CalendarItem> remote,
+  ) async {
+    final sync = _sync;
+    if (sync == null) return remote;
+    final pending = await sync.outbox.pending(uid, entity: 'event');
+    if (pending.isEmpty) return remote;
+    final deleted = {
+      for (final e in pending)
+        if (e.op == OutboxOp.delete) e.entityId,
+    };
+    final changed = <String, CalendarItem>{};
+    for (final e in pending.where((e) => e.op != OutboxOp.delete)) {
+      final local = await _db.getEvent(uid, e.entityId);
+      if (local != null) changed[local.id] = _itemFor(local);
+    }
+    return [
+      for (final item in remote)
+        if (!(item.kind == 'event' &&
+            (deleted.contains(item.id) || changed.containsKey(item.id))))
+          item,
+      ...changed.values,
+    ]..sort((a, b) => a.startsAt.compareTo(b.startsAt));
   }
 
   /// Recherche locale (SQL LIKE) : marche sans réseau.

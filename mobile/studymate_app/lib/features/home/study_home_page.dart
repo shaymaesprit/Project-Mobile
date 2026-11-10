@@ -1,16 +1,25 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../data/models/study_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
 import '../courses/course_management_page.dart';
+import '../courses/timetable_page.dart';
 import '../events/events_calendar_page.dart';
 import '../events/events_controller.dart';
 import '../events/notifications_center_page.dart';
+import '../insights/learning_insights_page.dart';
 import '../profile/profile_page.dart';
+import '../profile/user_avatar.dart';
 import '../study/study_tools_page.dart';
+import 'dashboard_widgets.dart';
+import 'note_detail_page.dart';
+import 'note_wikipedia_page.dart';
+import 'task_planner_page.dart';
 
 class StudyHomePage extends StatefulWidget {
   const StudyHomePage({
@@ -47,6 +56,7 @@ class _StudyHomePageState extends State<StudyHomePage> {
   _TaskFilter _taskFilter = _TaskFilter.all;
   late final EventsController _events = EventsController(
     widget.controller.api,
+    sync: widget.controller.sync,
     userIdProvider: () => widget.user?.uid,
   );
 
@@ -94,6 +104,29 @@ class _StudyHomePageState extends State<StudyHomePage> {
     if (mounted) _events.refreshUnread();
   }
 
+  Future<void> _openTimetable() => Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => TimetablePage(api: widget.controller.api),
+        ),
+      );
+
+  Future<void> _openPlanner() => Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => TaskPlannerPage(
+            controller: widget.controller,
+            onTasksChanged: _refresh,
+          ),
+        ),
+      );
+
+  Future<void> _openWikipedia(StudyNote note) =>
+      Navigator.of(context).push<bool>(
+        MaterialPageRoute(
+          builder: (_) =>
+              NoteWikipediaPage(controller: widget.controller, note: note),
+        ),
+      );
+
   Future<void> _openNotifications() async {
     await Navigator.of(context).push<void>(
       MaterialPageRoute(
@@ -132,12 +165,19 @@ class _StudyHomePageState extends State<StudyHomePage> {
             leadingWidth: 58,
             leading: Padding(
               padding: const EdgeInsets.only(left: 14),
-              child: CircleAvatar(
-                backgroundColor:
-                    Theme.of(context).colorScheme.secondaryContainer,
-                child: Icon(
-                  Icons.school_rounded,
-                  color: Theme.of(context).colorScheme.primary,
+              child: Center(
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: AppGradients.brand,
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(
+                    Icons.school_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
               ),
             ),
@@ -175,6 +215,38 @@ class _StudyHomePageState extends State<StudyHomePage> {
                   ),
                 ),
               ],
+              if (widget.controller.sync case final sync?)
+                ListenableBuilder(
+                  listenable: sync,
+                  builder: (context, _) {
+                    if (sync.pendingCount == 0) return const SizedBox.shrink();
+                    return IconButton(
+                      tooltip: sync.isOnline
+                          ? '${sync.pendingCount} modification(s) en cours d’envoi'
+                          : 'Hors ligne · ${sync.pendingCount} modification(s) en attente',
+                      onPressed: sync.isSyncing
+                          ? null
+                          : () async {
+                              final done = await sync.flush();
+                              if (!mounted) return;
+                              _showMessage(
+                                done
+                                    ? 'Tout est synchronisé.'
+                                    : 'Toujours hors ligne : nouvel essai automatique bientôt.',
+                              );
+                            },
+                      icon: Badge(
+                        label: Text('${sync.pendingCount}'),
+                        backgroundColor: AppPalette.amber,
+                        child: Icon(
+                          sync.isSyncing
+                              ? Icons.cloud_sync_rounded
+                              : Icons.cloud_off_rounded,
+                        ),
+                      ),
+                    );
+                  },
+                ),
               IconButton(
                 tooltip: 'Actualiser',
                 onPressed: widget.controller.isLoading ? null : _refresh,
@@ -199,10 +271,20 @@ class _StudyHomePageState extends State<StudyHomePage> {
               if (widget.user != null)
                 PopupMenuButton<_AccountAction>(
                   tooltip: 'Compte',
+                  padding: EdgeInsets.zero,
+                  // Photo de profil (ou initiales) à la place des trois points.
+                  icon: UserAvatar(
+                    photoUrl: widget.controller.userProfile?.photoUrl ?? widget.user?.photoURL,
+                    name: widget.controller.userProfile?.displayName ??
+                        widget.user?.displayName ??
+                        widget.user?.email,
+                    radius: 15,
+                    ring: true,
+                  ),
                   onSelected: (action) {
                     switch (action) {
                       case _AccountAction.profile:
-                        _selectPage(4);
+                        _selectPage(5);
                       case _AccountAction.changePassword:
                         widget.onChangePassword?.call();
                       case _AccountAction.signOut:
@@ -359,6 +441,39 @@ class _StudyHomePageState extends State<StudyHomePage> {
         label: const Text('Nouvelle note'),
       );
     }
+    // Accueil : petite icône de l'assistant IA.
+    if (_selectedIndex == 0 && widget.user != null) {
+      return Tooltip(
+        message: 'Analyses d’apprentissage et assistant IA',
+        child: Material(
+          shape: const CircleBorder(),
+          elevation: 6,
+          shadowColor: AppPalette.violet.withValues(alpha: 0.5),
+          child: Ink(
+            width: 52,
+            height: 52,
+            decoration: const ShapeDecoration(
+              shape: CircleBorder(),
+              gradient: AppGradients.brand,
+            ),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      LearningInsightsPage(controller: widget.controller),
+                ),
+              ),
+              child: const Icon(
+                Icons.auto_awesome_rounded,
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return const SizedBox.shrink();
   }
 
@@ -435,6 +550,37 @@ class _StudyHomePageState extends State<StudyHomePage> {
   void _selectPage(int index) => setState(() => _selectedIndex = index);
 
   Future<void> _signOut() async {
+    // Modifications faites hors ligne pas encore envoyées : on prévient.
+    final sync = widget.controller.sync;
+    if (sync != null && sync.pendingCount > 0) {
+      await sync.flush();
+      if (!mounted) return;
+      if (sync.pendingCount > 0) {
+        final proceed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            icon: const Icon(Icons.cloud_off_rounded),
+            title: const Text('Modifications non synchronisées'),
+            content: Text(
+              '${sync.pendingCount} modification(s) faite(s) hors ligne '
+              'n’ont pas encore été envoyées. Si tu te déconnectes maintenant, '
+              'elles seront perdues.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Rester connecté'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Se déconnecter quand même'),
+              ),
+            ],
+          ),
+        );
+        if (proceed != true) return;
+      }
+    }
     try {
       await widget.onSignOut?.call();
     } on GoogleSignInException catch (error) {
@@ -470,191 +616,166 @@ class _StudyHomePageState extends State<StudyHomePage> {
     final now = DateTime.now();
     final date =
         '${_weekdays[now.weekday - 1]} ${now.day} ${_months[now.month - 1]}';
-    final courses = widget.controller.courses;
-    final course = courses.isEmpty ? null : courses.first;
-    final previewTasks = widget.controller.tasks.take(2).toList();
+    final controller = widget.controller;
+    final courses = controller.courses;
+    final pending = controller.tasks.where((t) => !t.isCompleted).toList()
+      ..sort((a, b) {
+        final da = a.deadline, db = b.deadline;
+        if (da == null && db == null) return 0;
+        if (da == null) return 1;
+        if (db == null) return -1;
+        return da.compareTo(db);
+      });
+    final focus = pending.isEmpty ? null : pending.first;
+    final previewTasks = pending.skip(1).take(3).toList();
+
+    var step = 0;
+    Widget reveal(Widget child) => child
+        .animate(delay: (70 * step++).ms)
+        .fadeIn(duration: 380.ms)
+        .slideY(begin: 0.06, end: 0, curve: Curves.easeOutCubic);
 
     return RefreshIndicator(
       onRefresh: _refresh,
       child: _pageList([
-        Text(
-          date.toUpperCase(),
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.primary,
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.1,
+        reveal(
+          DashboardHero(
+            name: widget.user?.displayName,
+            dateLabel: date.toUpperCase(),
+            completed: controller.completedTaskCount,
+            total: controller.tasks.length,
+            courseCount: courses.length,
+            noteCount: controller.notes.length,
           ),
         ),
-        const SizedBox(height: 8),
-        Text(
-          widget.user?.displayName?.isNotEmpty == true
-              ? 'Bonjour, ${widget.user!.displayName} 👋'
-              : 'Bonjour, étudiant·e 👋',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
+        const SizedBox(height: 18),
+        reveal(
+          Row(
+            children: [
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.calendar_view_week_rounded,
+                  label: 'Emploi du t.',
+                  color: AppPalette.sky,
+                  onTap: _openTimetable,
+                ),
               ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.style_rounded,
+                  label: 'Réviser',
+                  color: AppPalette.violet,
+                  onTap: () => _selectPage(4),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.auto_graph_rounded,
+                  label: 'Planning',
+                  color: AppPalette.coral,
+                  onTap: _openPlanner,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: QuickAction(
+                  icon: Icons.event_note_rounded,
+                  label: 'Agenda',
+                  color: AppPalette.mint,
+                  onTap: _openAgenda,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Un petit pas aujourd’hui, une grande réussite demain.',
-          style:
-              TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 20),
-        _buildProgressCard(),
         const SizedBox(height: 18),
-        _sectionTitle(context, 'Mes cours', 'Tout voir', () => _selectPage(1)),
-        const SizedBox(height: 8),
-        if (course == null)
-          _emptyCard(
-            icon: Icons.school_outlined,
-            title: 'Aucun cours pour le moment',
-            action: 'Ajouter un cours',
-            onPressed: () {
-              _selectPage(1);
-              _addCourse();
-            },
-          )
-        else
-          _courseCard(course),
-        const SizedBox(height: 18),
-        _sectionTitle(
-          context,
-          'Mes tâches',
-          'Tout voir',
-          () => _selectPage(2),
-        ),
-        const SizedBox(height: 8),
-        if (previewTasks.isEmpty)
-          _emptyCard(
-            icon: Icons.task_alt_rounded,
-            title: 'Ta liste de tâches est vide',
-            action: 'Ajouter une tâche',
-            onPressed: () {
-              _selectPage(2);
-              _addTask();
-            },
-          )
-        else
-          Card(
-            child: Column(
-              children: [
-                for (var index = 0; index < previewTasks.length; index++) ...[
-                  if (index > 0)
-                    const Divider(height: 1, indent: 16, endIndent: 16),
-                  _taskTile(previewTasks[index]),
-                ],
-              ],
+        if (focus != null) ...[
+          reveal(
+            FocusTaskCard(
+              task: focus,
+              remaining: pending.length,
+              onDone: controller.isLoading
+                  ? null
+                  : () => _runAction(() => controller.toggleTask(focus, true)),
             ),
           ),
-        const SizedBox(height: 16),
-        const _InfoCard(
-          icon: Icons.auto_awesome_rounded,
-          title: 'Ton conseil du jour',
-          body: 'Révise 25 minutes, puis accorde-toi une petite pause.',
+          const SizedBox(height: 18),
+        ],
+        reveal(
+          _sectionTitle(
+              context, 'Mes cours', 'Tout voir', () => _selectPage(1)),
         ),
+        const SizedBox(height: 6),
+        if (courses.isEmpty)
+          reveal(
+            _emptyCard(
+              icon: Icons.school_outlined,
+              title: 'Aucun cours pour le moment',
+              action: 'Ajouter un cours',
+              onPressed: () {
+                _selectPage(1);
+                _addCourse();
+              },
+            ),
+          )
+        else
+          reveal(
+            SizedBox(
+              height: 150,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: courses.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (_, index) => CourseTile(
+                  course: courses[index],
+                  onTap: () => _selectPage(1),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 18),
+        reveal(
+          _sectionTitle(
+            context,
+            focus == null ? 'Mes tâches' : 'Ensuite',
+            'Tout voir',
+            () => _selectPage(2),
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (focus == null)
+          reveal(
+            _emptyCard(
+              icon: Icons.celebration_rounded,
+              title: controller.tasks.isEmpty
+                  ? 'Ta liste de tâches est vide'
+                  : 'Tout est terminé, bravo !',
+              action: 'Ajouter une tâche',
+              onPressed: _addTask,
+            ),
+          )
+        else if (previewTasks.isNotEmpty)
+          reveal(
+            Card(
+              child: Column(
+                children: [
+                  for (var index = 0; index < previewTasks.length; index++) ...[
+                    if (index > 0)
+                      const Divider(height: 1, indent: 16, endIndent: 16),
+                    _taskTile(previewTasks[index]),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: 18),
+        reveal(const DailyTipCard()),
       ]),
     );
   }
-
-  Widget _buildProgressCard() {
-    final tasks = widget.controller.tasks;
-    final total = tasks.length;
-    final completed = widget.controller.completedTaskCount;
-    final progress = total == 0 ? 0.0 : completed / total;
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6750A4), Color(0xFF8872C5)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Ta journée en bref',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              Icon(Icons.auto_awesome_rounded, color: Colors.white),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Wrap(
-            spacing: 26,
-            runSpacing: 14,
-            children: [
-              _progressStat(Icons.task_alt_rounded, '$total', 'tâches'),
-              _progressStat(
-                Icons.menu_book_rounded,
-                '${widget.controller.courses.length}',
-                'cours',
-              ),
-              _progressStat(
-                Icons.check_circle_outline_rounded,
-                '$completed',
-                'terminées',
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 7,
-              backgroundColor: Colors.white.withValues(alpha: 0.28),
-              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '$completed sur $total tâches terminées',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.92),
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _progressStat(IconData icon, String value, String label) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: Colors.white70),
-              const SizedBox(width: 5),
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 3),
-          Text(label, style: const TextStyle(color: Colors.white70)),
-        ],
-      );
 
   Widget _buildCoursesPage() => CourseManagementPage(
         controller: widget.controller,
@@ -678,6 +799,15 @@ class _StudyHomePageState extends State<StudyHomePage> {
         _pageHeading(
           'Mes tâches',
           '$remaining tâche${remaining == 1 ? '' : 's'} à terminer',
+        ),
+        const SizedBox(height: 14),
+        _FeatureCard(
+          icon: Icons.auto_graph_rounded,
+          color: AppPalette.coral,
+          title: 'Planning intelligent',
+          subtitle:
+              'Priorise tes tâches et les place dans tes créneaux libres.',
+          onTap: _openPlanner,
         ),
         const SizedBox(height: 14),
         Wrap(
@@ -765,37 +895,6 @@ class _StudyHomePageState extends State<StudyHomePage> {
         ],
       );
 
-  Widget _courseCard(StudyCourse course) => Card(
-        child: ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-            child: Icon(
-              Icons.menu_book_rounded,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          title: Text(
-            course.title,
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-          subtitle: Text(
-            [
-              if (course.code?.isNotEmpty == true) course.code!,
-              if (course.professor?.isNotEmpty == true) course.professor!,
-              if (course.room?.isNotEmpty == true) course.room!,
-            ].join(' · ').isEmpty
-                ? 'Cours'
-                : [
-                    if (course.code?.isNotEmpty == true) course.code!,
-                    if (course.professor?.isNotEmpty == true) course.professor!,
-                    if (course.room?.isNotEmpty == true) course.room!,
-                  ].join(' · '),
-          ),
-        ),
-      );
-
   Widget _taskTile(StudyTask task) => CheckboxListTile(
         value: task.isCompleted,
         onChanged: widget.controller.isLoading
@@ -823,13 +922,25 @@ class _StudyHomePageState extends State<StudyHomePage> {
       );
 
   Widget _noteCard(StudyNote note) => Card(
+        clipBehavior: Clip.antiAlias,
         child: ListTile(
+          // Toucher la note ouvre son contenu complet.
+          onTap: () => Navigator.of(context).push<void>(
+            MaterialPageRoute(
+              builder: (_) => NoteDetailPage(controller: widget.controller, note: note),
+            ),
+          ),
           contentPadding: const EdgeInsets.fromLTRB(16, 8, 6, 8),
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+          leading: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppPalette.accentFor(note.id).withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(13),
+            ),
             child: Icon(
-              Icons.description_outlined,
-              color: Theme.of(context).colorScheme.primary,
+              Icons.description_rounded,
+              color: AppPalette.accentFor(note.id),
             ),
           ),
           title: Text(note.title,
@@ -843,10 +954,29 @@ class _StudyHomePageState extends State<StudyHomePage> {
             ),
           ),
           isThreeLine: true,
-          trailing: IconButton(
-            tooltip: 'Supprimer la note',
-            icon: const Icon(Icons.delete_outline_rounded),
-            onPressed: () => _confirmDeleteNote(note),
+          trailing: PopupMenuButton<String>(
+            tooltip: 'Actions',
+            onSelected: (action) => action == 'wiki'
+                ? _openWikipedia(note)
+                : _confirmDeleteNote(note),
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'wiki',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.travel_explore_rounded),
+                  title: Text('Compléter avec Wikipédia'),
+                ),
+              ),
+              PopupMenuItem(
+                value: 'delete',
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.delete_outline_rounded),
+                  title: Text('Supprimer'),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -859,18 +989,30 @@ class _StudyHomePageState extends State<StudyHomePage> {
   }) =>
       Card(
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 18),
           child: Column(
             children: [
-              Icon(
-                icon,
-                size: 34,
-                color: Theme.of(context).colorScheme.primary,
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  size: 28,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
-              Text(title, textAlign: TextAlign.center),
-              const SizedBox(height: 8),
-              TextButton.icon(
+              FilledButton.tonalIcon(
                 onPressed: onPressed,
                 icon: const Icon(Icons.add_rounded),
                 label: Text(action),
@@ -957,40 +1099,44 @@ class _StudyHomePageState extends State<StudyHomePage> {
     required String fieldLabel,
     required String action,
   }) async {
-    final controller = TextEditingController();
-    final result = await showDialog<String>(
+    return showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textCapitalization: TextCapitalization.sentences,
-          decoration: InputDecoration(
-            labelText: fieldLabel,
-            border: const OutlineInputBorder(),
-          ),
-          onSubmitted: (value) {
-            if (value.trim().isNotEmpty) Navigator.pop(context, value.trim());
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isNotEmpty) Navigator.pop(context, value);
-            },
-            child: Text(action),
-          ),
-        ],
+      builder: (context) => _DialogControllers(
+        keys: const ['value'],
+        builder: (context, controllers) {
+          final controller = controllers['value']!;
+          return AlertDialog(
+            title: Text(title),
+            content: TextField(
+              controller: controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: InputDecoration(
+                labelText: fieldLabel,
+              ),
+              onSubmitted: (value) {
+                if (value.trim().isNotEmpty) {
+                  Navigator.pop(context, value.trim());
+                }
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Annuler'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final value = controller.text.trim();
+                  if (value.isNotEmpty) Navigator.pop(context, value);
+                },
+                child: Text(action),
+              ),
+            ],
+          );
+        },
       ),
     );
-    controller.dispose();
-    return result;
   }
 
   Future<Map<String, String>?> _fieldsDialog({
@@ -998,67 +1144,62 @@ class _StudyHomePageState extends State<StudyHomePage> {
     required List<(String, String, bool)> fields,
     String? multilineField,
   }) async {
-    final controllers = {
-      for (final field in fields) field.$1: TextEditingController(),
-    };
     final formKey = GlobalKey<FormState>();
-    final result = await showDialog<Map<String, String>>(
+    return showDialog<Map<String, String>>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var index = 0; index < fields.length; index++) ...[
-                  if (index > 0) const SizedBox(height: 12),
-                  TextFormField(
-                    controller: controllers[fields[index].$1],
-                    autofocus: index == 0,
-                    textCapitalization: TextCapitalization.sentences,
-                    minLines: fields[index].$1 == multilineField ? 3 : 1,
-                    maxLines: fields[index].$1 == multilineField ? 5 : 1,
-                    decoration: InputDecoration(
-                      labelText: fields[index].$2,
-                      border: const OutlineInputBorder(),
+      builder: (context) => _DialogControllers(
+        keys: [for (final field in fields) field.$1],
+        builder: (context, controllers) => AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var index = 0; index < fields.length; index++) ...[
+                    if (index > 0) const SizedBox(height: 12),
+                    TextFormField(
+                      controller: controllers[fields[index].$1],
+                      autofocus: index == 0,
+                      textCapitalization: TextCapitalization.sentences,
+                      minLines: fields[index].$1 == multilineField ? 3 : 1,
+                      maxLines: fields[index].$1 == multilineField ? 5 : 1,
+                      decoration: InputDecoration(
+                        labelText: fields[index].$2,
+                      ),
+                      validator: fields[index].$3
+                          ? (value) => value == null || value.trim().isEmpty
+                              ? 'Ce champ est requis.'
+                              : null
+                          : null,
                     ),
-                    validator: fields[index].$3
-                        ? (value) => value == null || value.trim().isEmpty
-                            ? 'Ce champ est requis.'
-                            : null
-                        : null,
-                  ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.pop(
+                  context,
+                  controllers.map(
+                    (key, controller) => MapEntry(key, controller.text.trim()),
+                  ),
+                );
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
-          ),
-          FilledButton(
-            onPressed: () {
-              if (!formKey.currentState!.validate()) return;
-              Navigator.pop(
-                context,
-                controllers.map(
-                  (key, controller) => MapEntry(key, controller.text.trim()),
-                ),
-              );
-            },
-            child: const Text('Enregistrer'),
-          ),
-        ],
       ),
     );
-    for (final controller in controllers.values) {
-      controller.dispose();
-    }
-    return result;
   }
 
   Future<void> _runAction(Future<void> Function() action) async {
@@ -1147,6 +1288,97 @@ class _InfoCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Carte d'accès à une fonctionnalité (planning, emploi du temps…).
+class _FeatureCard extends StatelessWidget {
+  const _FeatureCard({
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: Colors.white),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title,
+                          style: const TextStyle(fontWeight: FontWeight.w800)),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right_rounded),
+              ],
+            ),
+          ),
+        ),
+      );
+}
+
+/// Possède les champs d'une boîte de dialogue et ne les libère qu'une fois
+/// la boîte réellement retirée (après son animation de fermeture).
+class _DialogControllers extends StatefulWidget {
+  const _DialogControllers({required this.keys, required this.builder});
+
+  final List<String> keys;
+  final Widget Function(
+    BuildContext context,
+    Map<String, TextEditingController> controllers,
+  ) builder;
+
+  @override
+  State<_DialogControllers> createState() => _DialogControllersState();
+}
+
+class _DialogControllersState extends State<_DialogControllers> {
+  late final Map<String, TextEditingController> _controllers = {
+    for (final key in widget.keys) key: TextEditingController(),
+  };
+
+  @override
+  void dispose() {
+    for (final controller in _controllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _controllers);
 }
 
 enum _AccountAction { profile, changePassword, signOut }

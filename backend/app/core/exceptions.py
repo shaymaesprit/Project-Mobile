@@ -62,3 +62,8 @@ class EventScheduleConflictError(StudyMateError):
 class PlacesUnavailableError(StudyMateError):
     status_code = 503
     code = "places_unavailable"
+
+
+class DuplicateResourceError(StudyMateError):
+    status_code = 409
+    code = "duplicate_resource"

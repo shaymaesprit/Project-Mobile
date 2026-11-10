@@ -30,9 +30,10 @@ class TaskService:
         if "course_id" in changes:
             self._validate_course(changes["course_id"], owner_uid)
         if "is_completed" in changes:
-            changes["completed_at"] = (
-                datetime.now(timezone.utc) if changes["is_completed"] else None
-            )
+            done = bool(changes["is_completed"])
+            changes["completed_at"] = datetime.now(timezone.utc) if done else None
+            # La base exige status = 'completed' ⇔ is_completed.
+            changes["status"] = "completed" if done else "pending"
         return self._repository.update(task, changes)
 
     def delete_task(self, task_id: UUID, owner_uid: str) -> None:

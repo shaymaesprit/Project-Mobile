@@ -7,7 +7,10 @@ from app.database.session import get_db
 from app.models.course import Course
 from app.models.user import User
 from app.schemas.common import CourseRead
+from app.schemas.planning import WeekAgendaResponse
 from app.schemas.schedule import FreeSlot, ScheduleStatsResponse
+from app.api.dependencies import get_planning_service
+from app.services.planning_service import PlanningService
 from app.services.schedule_service import ScheduleService
 from sqlalchemy.orm import Session
 
@@ -59,3 +62,14 @@ def get_stats(
     user: User = Depends(get_current_user),
 ) -> ScheduleStatsResponse:
     return service.get_stats(user.firebase_uid)
+
+
+@router.get("/week-agenda", response_model=WeekAgendaResponse)
+def get_week_agenda(
+    week_start: date | None = None,
+    user: User = Depends(get_current_user),
+    planner: PlanningService = Depends(get_planning_service),
+) -> dict:
+    """Semaine réelle : cours (annulés les jours fériés), événements,
+    conflits, créneaux libres et heures par cours."""
+    return planner.week_agenda(user.firebase_uid, week_start or date.today())

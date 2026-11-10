@@ -45,7 +45,7 @@ void main() {
     expect(summary.trend.single.percentage, 80);
   });
 
-  testWidgets('study tools switch between flashcards and evaluations',
+  testWidgets('study tools switch between flashcards and the dashboard',
       (tester) async {
     final controller = StudyController(
       api: StudyMateApi(tokenProvider: null),
@@ -62,9 +62,19 @@ void main() {
     );
 
     expect(find.text('Mes jeux de cartes'), findsOneWidget);
-    await tester.tap(find.text('Évaluations'));
+    await tester.tap(find.text('Tableau de bord'));
     await tester.pumpAndSettle();
-    expect(find.text('Mes évaluations'), findsOneWidget);
+    expect(find.text('Temps passé dans StudyMate'), findsOneWidget);
+    expect(find.text('Lancer un quiz'), findsOneWidget);
+
+    // Les examens et devoirs restent accessibles depuis le tableau de bord.
+    final manage = find.text('Gérer mes examens et devoirs');
+    await tester.scrollUntilVisible(manage, 300, scrollable: find.byType(Scrollable).last);
+    await tester.ensureVisible(manage);
+    await tester.pumpAndSettle();
+    await tester.tap(manage);
+    await tester.pumpAndSettle();
+    expect(find.text('Mes évaluations'), findsWidgets);
     expect(find.text('Aucune évaluation'), findsOneWidget);
   });
 

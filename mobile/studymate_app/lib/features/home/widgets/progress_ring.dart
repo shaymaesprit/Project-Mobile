@@ -62,7 +62,7 @@ class _ProgressRingState extends State<ProgressRing>
   @override
   Widget build(BuildContext context) {
     final backgroundColor =
-        widget.backgroundColor ?? Theme.of(context).colorScheme.surfaceVariant;
+        widget.backgroundColor ?? Theme.of(context).colorScheme.surfaceContainerHighest;
 
     return AnimatedBuilder(
       animation: _animation,
@@ -111,7 +111,7 @@ class _ProgressRingPainter extends CustomPainter {
     // Progress arc
     final progressPaint = Paint()
       ..shader = LinearGradient(
-        colors: [color, color.withOpacity(0.6)],
+        colors: [color, color.withValues(alpha: 0.6)],
       ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke

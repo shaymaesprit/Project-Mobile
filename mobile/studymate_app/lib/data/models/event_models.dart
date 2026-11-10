@@ -1,4 +1,5 @@
 /// Modèles de la gestion « Événements & Notifications ».
+library;
 
 DateTime _parseDate(Object? value) => DateTime.parse(value as String).toLocal();
 

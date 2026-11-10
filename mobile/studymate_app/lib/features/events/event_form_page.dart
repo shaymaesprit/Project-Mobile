@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/event_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
+import '../../data/sync/offline_outbox.dart';
 import 'event_helpers.dart';
 import 'events_controller.dart';
 
@@ -237,12 +238,18 @@ class _EventFormPageState extends State<EventFormPage> {
     if (candidate.status == 'cancelled' || candidate.eventType == 'deadline') {
       return true;
     }
-    final conflicts = await _api.checkEventConflicts(
-      startsAt: candidate.startsAt,
-      endsAt: candidate.endsAt,
-      eventType: candidate.eventType,
-      excludeId: widget.event?.id,
-    );
+    final List<EventConflictInfo> conflicts;
+    try {
+      conflicts = await _api.checkEventConflicts(
+        startsAt: candidate.startsAt,
+        endsAt: candidate.endsAt,
+        eventType: candidate.eventType,
+        excludeId: widget.event?.id,
+      );
+    } on StudyMateApiException catch (error) {
+      if (error.isNetworkError) return true; // vérifié plus tard, en ligne
+      rethrow;
+    }
     if (conflicts.isEmpty || !mounted) return true;
     final proceed = await showDialog<bool>(
       context: context,
@@ -327,7 +334,10 @@ class _EventFormPageState extends State<EventFormPage> {
         if (mounted) setState(() => _saving = false);
         return;
       }
-      if (_isEditing) {
+      // Un événement pas encore synchronisé reste géré par la file.
+      if (isLocalId(candidate.id)) {
+        await widget.events.saveOffline(candidate, isNew: false);
+      } else if (_isEditing) {
         final saved = await _api.updateEvent(candidate, force: true);
         await widget.events.cacheEvent(saved);
       } else {
@@ -336,6 +346,23 @@ class _EventFormPageState extends State<EventFormPage> {
       }
       if (mounted) Navigator.pop(context, true);
     } on StudyMateApiException catch (error) {
+      if (error.isNetworkError) {
+        try {
+          await widget.events.saveOffline(_build(), isNew: !_isEditing);
+          if (!mounted) return;
+          _savedOfflineSnack(context);
+          Navigator.pop(context, true);
+          return;
+        } on StudyMateApiException catch (offlineError) {
+          if (mounted) {
+            setState(() {
+              _saving = false;
+              _error = offlineError.message;
+            });
+          }
+          return;
+        }
+      }
       if (mounted) {
         setState(() {
           _saving = false;
@@ -364,11 +391,23 @@ class _EventFormPageState extends State<EventFormPage> {
       ),
     );
     if (confirmed != true) return;
+    final id = widget.event!.id;
     try {
-      await _api.deleteEvent(widget.event!.id);
-      await widget.events.forgetEvent(widget.event!.id);
+      if (isLocalId(id)) {
+        await widget.events.deleteOffline(id);
+      } else {
+        await _api.deleteEvent(id);
+        await widget.events.forgetEvent(id);
+      }
       if (mounted) Navigator.pop(context, true);
     } on StudyMateApiException catch (error) {
+      if (error.isNetworkError) {
+        await widget.events.deleteOffline(id);
+        if (!mounted) return;
+        _savedOfflineSnack(context);
+        Navigator.pop(context, true);
+        return;
+      }
       if (mounted) setState(() => _error = error.message);
     }
   }
@@ -436,7 +475,6 @@ class _EventFormPageState extends State<EventFormPage> {
               maxLength: 200,
               decoration: const InputDecoration(
                 labelText: 'Titre *',
-                border: OutlineInputBorder(),
               ),
               validator: (value) => (value == null || value.trim().isEmpty)
                   ? 'Le titre est obligatoire'
@@ -533,7 +571,6 @@ class _EventFormPageState extends State<EventFormPage> {
               maxLength: 200,
               decoration: InputDecoration(
                 labelText: 'Lieu',
-                border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.place_outlined),
                 helperText: _placesDisabled
                     ? 'Recherche de lieux indisponible : saisie libre.'
@@ -563,7 +600,6 @@ class _EventFormPageState extends State<EventFormPage> {
               initialValue: courseValue,
               decoration: const InputDecoration(
                 labelText: 'Cours associé',
-                border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.school_outlined),
               ),
               items: [
@@ -629,7 +665,6 @@ class _EventFormPageState extends State<EventFormPage> {
               decoration: const InputDecoration(
                 labelText: 'Description',
                 alignLabelWithHint: true,
-                border: OutlineInputBorder(),
               ),
             ),
             if (_error != null)
@@ -687,4 +722,14 @@ class _EventFormPageState extends State<EventFormPage> {
           ),
         ],
       );
+}
+
+void _savedOfflineSnack(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Hors ligne : enregistré sur le téléphone, envoyé dès le retour du réseau.',
+      ),
+    ),
+  );
 }

@@ -24,9 +24,12 @@ class ProfilePhotoService {
 
   /// Lets the user choose an image and validates its format and size.
   /// Returns `null` when the picker is dismissed.
-  static Future<PickedProfilePhoto?> pick() async {
+  static Future<PickedProfilePhoto?> pick({
+    ImageSource source = ImageSource.gallery,
+  }) async {
     final image = await _picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
+      preferredCameraDevice: CameraDevice.front,
       imageQuality: 85,
       maxWidth: 1200,
       maxHeight: 1200,
@@ -69,7 +72,7 @@ class ProfilePhotoService {
       ..files.add(http.MultipartFile.fromBytes(
         'file',
         photo.bytes,
-        filename: 'avatar.jpg',
+        filename: 'avatar.${photo.contentType.split('/').last}',
       ));
 
     final response = await request.send();

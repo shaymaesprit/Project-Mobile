@@ -4,15 +4,24 @@ import 'package:flutter/foundation.dart';
 import '../data/local/local_database.dart';
 import '../data/models/study_models.dart';
 import '../data/services/studymate_api.dart';
+import '../data/sync/offline_outbox.dart';
+import '../data/sync/sync_service.dart';
 import '../features/notifications/push_service.dart';
 
 class StudyController extends ChangeNotifier {
   StudyController({
     required StudyMateApi api,
     this.push,
+    this.sync,
     LocalDatabase? localDb,
   })  : _api = api,
-        _db = localDb ?? LocalDatabase.instance;
+        _db = localDb ?? LocalDatabase.instance {
+    sync?.onCreated(_onSyncCreated);
+    sync?.onRejected(_onSyncRejected);
+  }
+
+  /// File d'attente hors ligne (absente dans les tests unitaires).
+  final SyncService? sync;
 
   /// Expose the local database so callers can run direct queries (e.g. stats).
   LocalDatabase get localDb => _db;
@@ -74,6 +83,27 @@ class StudyController extends ChangeNotifier {
       _isProfileLoading = false;
       notifyListeners();
     }
+  }
+
+  /// Change (ou retire, avec `null`) la photo de profil tout de suite, sans
+  /// attendre le reste du formulaire : l'avatar de l'accueil se met à jour.
+  Future<void> updateProfilePhoto({
+    required User firebaseUser,
+    required String? photoUrl,
+  }) async {
+    final current = _userProfile;
+    _userProfile = await _api.updateCurrentUser(
+      displayName: current?.displayName ?? firebaseUser.displayName ?? '',
+      photoUrl: photoUrl,
+      locale: current?.locale,
+      timezone: current?.timezone,
+    );
+    try {
+      await firebaseUser.updatePhotoURL(photoUrl);
+    } on FirebaseAuthException {
+      // Le profil StudyMate fait foi ; Firebase sera resynchronisé au prochain enregistrement.
+    }
+    notifyListeners();
   }
 
   Future<void> saveStudentProfile({
@@ -152,8 +182,14 @@ class StudyController extends ChangeNotifier {
     _isLoading = _courses.isEmpty && _tasks.isEmpty;
     notifyListeners();
 
+    final cachedCourses = _courses;
+    final cachedTasks = _tasks;
+    final cachedNotes = _notes;
+
     // ── Step 2 : sync from API in background ─────────────────────────────
     try {
+      // Envoie d'abord le travail fait hors ligne.
+      await sync?.flush();
       await _api.checkHealth();
       _userProfile = await _api.getCurrentUser();
       final results = await Future.wait([
@@ -176,6 +212,13 @@ class StudyController extends ChangeNotifier {
       _evaluationSummary = results[7] as StudyEvaluationSummary;
       _lastSyncedAt = DateTime.now();
 
+      // Ce qui n'a pas encore pu partir reste visible.
+      final pending = await sync?.outbox.pending(user.uid) ?? const [];
+      _courses = _overlay(_courses, cachedCourses, pending, 'course', (c) => c.id);
+      _tasks = _overlay(_tasks, cachedTasks, pending, 'task', (t) => t.id);
+      _notes = _overlay(_notes, cachedNotes, pending, 'note', (n) => n.id);
+      _refreshWeeklySchedule();
+
       // ── Step 3 : persist fresh data into SQLite ───────────────────────
       await Future.wait([
         _db.upsertCourses(_courses),
@@ -185,8 +228,10 @@ class StudyController extends ChangeNotifier {
         _db.upsertEvaluations(_evaluations),
       ]);
     } on StudyMateApiException catch (error) {
-      _errorMessage = error.message;
+      // Hors ligne : les données locales suffisent, pas de bandeau d'erreur.
+      if (!error.isNetworkError) _errorMessage = error.message;
       _profileErrorMessage = error.message;
+      _refreshWeeklySchedule();
       // Keep showing cached data — don't blank the UI.
     } finally {
       _isLoading = false;
@@ -195,42 +240,53 @@ class StudyController extends ChangeNotifier {
     }
   }
 
+  // ══════════════════════════════════════════════════════════════════════
+  // Hors ligne d'abord : chaque modification est appliquée tout de suite sur
+  // le téléphone (écran + SQLite), puis mise dans la file d'attente et
+  // envoyée au serveur dès que le réseau le permet.
+  // ══════════════════════════════════════════════════════════════════════
+
+  Future<void> _queue(
+    String entity,
+    OutboxOp op,
+    String entityId, [
+    Map<String, dynamic> payload = const {},
+  ]) async {
+    final sync = this.sync;
+    if (sync == null) return;
+    await sync.enqueue(
+      entity: entity,
+      op: op,
+      entityId: entityId,
+      payload: payload,
+    );
+  }
+
+  /// Nombre de modifications pas encore envoyées au serveur.
+  int get pendingChanges => sync?.pendingCount ?? 0;
+
   Future<void> addTask(String title) async {
     _requireBackendSession();
     final task = StudyTask(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      id: newLocalId(),
       title: title,
       description: 'À faire aujourd’hui',
     );
-    try {
-      final saved = await _api.createTask(task);
-      _tasks = [saved, ..._tasks];
-      await _db.upsertTask(saved);
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _setError(error);
-      rethrow;
-    }
+    _tasks = [task, ..._tasks];
+    await _db.upsertTask(task);
+    _clearError();
     notifyListeners();
+    await _queue('task', OutboxOp.create, task.id, task.toJson());
   }
 
   Future<void> toggleTask(StudyTask task, bool isCompleted) async {
     _requireBackendSession();
     final index = _tasks.indexWhere((item) => item.id == task.id);
     if (index < 0) return;
-    final previous = _tasks[index];
-    _replaceTask(index, previous.copyWith(isCompleted: isCompleted));
-
-    try {
-      final saved = await _api.updateTask(_tasks[index]);
-      _replaceTask(index, saved);
-      await _db.upsertTask(saved);
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _replaceTask(index, previous);
-      _setError(error);
-      rethrow;
-    }
+    final updated = _tasks[index].copyWith(isCompleted: isCompleted);
+    _replaceTask(index, updated);
+    await _db.upsertTask(updated);
+    await _queue('task', OutboxOp.update, task.id, {'is_completed': isCompleted});
   }
 
   Future<void> addCourse({
@@ -243,25 +299,23 @@ class StudyController extends ChangeNotifier {
     String? endTime,
   }) async {
     _requireBackendSession();
-    try {
-      final course = await _api.createCourse(
-        title: title,
-        code: code,
-        professor: professor,
-        room: room,
-        weekday: weekday,
-        startTime: startTime,
-        endTime: endTime,
-      );
-      _courses = [course, ..._courses];
-      await _db.upsertCourse(course);
-      await _refreshWeeklySchedule();
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _setError(error);
-      rethrow;
-    }
+    final course = StudyCourse(
+      id: newLocalId(),
+      title: title,
+      code: code,
+      professor: professor,
+      room: room,
+      weekday: weekday,
+      startTime: startTime,
+      endTime: endTime,
+    );
+    _checkCourseOverlap(course);
+    _courses = [course, ..._courses];
+    _refreshWeeklySchedule();
+    await _db.upsertCourse(course);
+    _clearError();
     notifyListeners();
+    await _queue('course', OutboxOp.create, course.id, _coursePayload(course));
   }
 
   Future<void> updateCourse({
@@ -275,45 +329,36 @@ class StudyController extends ChangeNotifier {
     String? endTime,
   }) async {
     _requireBackendSession();
-    try {
-      final saved = await _api.updateCourse(
-        course: course,
-        title: title,
-        code: code,
-        professor: professor,
-        room: room,
-        weekday: weekday,
-        startTime: startTime,
-        endTime: endTime,
-      );
-      _courses = [
-        for (final item in _courses)
-          if (item.id == saved.id) saved else item,
-      ];
-      await _db.upsertCourse(saved);
-      await _refreshWeeklySchedule();
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _setError(error);
-      rethrow;
-    }
+    final updated = StudyCourse(
+      id: course.id,
+      title: title,
+      code: code,
+      professor: professor,
+      room: room,
+      weekday: weekday,
+      startTime: startTime,
+      endTime: endTime,
+    );
+    _checkCourseOverlap(updated);
+    _courses = [
+      for (final item in _courses)
+        if (item.id == updated.id) updated else item,
+    ];
+    _refreshWeeklySchedule();
+    await _db.upsertCourse(updated);
+    _clearError();
     notifyListeners();
+    await _queue('course', OutboxOp.update, course.id, _coursePayload(updated));
   }
 
   Future<void> deleteCourse(StudyCourse course) async {
     _requireBackendSession();
-    try {
-      await _api.deleteCourse(course.id);
-      _courses = _courses.where((item) => item.id != course.id).toList();
-      _weeklySchedule =
-          _weeklySchedule.where((item) => item.id != course.id).toList();
-      await _db.deleteCourse(course.id);
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _setError(error);
-      rethrow;
-    }
+    _courses = _courses.where((item) => item.id != course.id).toList();
+    _refreshWeeklySchedule();
+    await _db.deleteCourse(course.id);
+    _clearError();
     notifyListeners();
+    await _queue('course', OutboxOp.delete, course.id);
   }
 
   Future<void> addNote({
@@ -322,37 +367,192 @@ class StudyController extends ChangeNotifier {
   }) async {
     _requireBackendSession();
     final note = StudyNote(
-      id: 'local-${DateTime.now().microsecondsSinceEpoch}',
+      id: newLocalId(),
       title: title,
       content: content,
+      updatedAt: DateTime.now(),
     );
-    try {
-      final saved = await _api.createNote(note);
-      _notes = [saved, ..._notes];
-      await _db.upsertNote(saved);
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _setError(error);
-      rethrow;
-    }
+    _notes = [note, ..._notes];
+    await _db.upsertNote(note);
+    _clearError();
     notifyListeners();
+    await _queue('note', OutboxOp.create, note.id, note.toJson());
+  }
+
+  Future<void> updateNote(StudyNote note) async {
+    _requireBackendSession();
+    _notes = [for (final item in _notes) item.id == note.id ? note : item];
+    await _db.upsertNote(note);
+    _clearError();
+    notifyListeners();
+    await _queue(
+      'note',
+      OutboxOp.update,
+      note.id,
+      {'title': note.title, 'content': note.content},
+    );
   }
 
   Future<void> deleteNote(StudyNote note) async {
     _requireBackendSession();
-    try {
-      await _api.deleteNote(note.id);
-      _notes = _notes.where((item) => item.id != note.id).toList();
-      await _db.deleteNote(note.id);
-      _clearError();
-    } on StudyMateApiException catch (error) {
-      _setError(error);
-      rethrow;
+    _notes = _notes.where((item) => item.id != note.id).toList();
+    await _db.deleteNote(note.id);
+    _clearError();
+    notifyListeners();
+    await _queue('note', OutboxOp.delete, note.id);
+  }
+
+  static Map<String, dynamic> _coursePayload(StudyCourse course) => {
+        'title': course.title,
+        'code': course.code,
+        'professor': course.professor,
+        'room': course.room,
+        'weekday': course.weekday,
+        'start_time': course.startTime,
+        'end_time': course.endTime,
+      };
+
+  /// Même règle que le serveur : deux cours ne peuvent pas se chevaucher le
+  /// même jour. Vérifiée localement pour répondre tout de suite, hors ligne.
+  void _checkCourseOverlap(StudyCourse course) {
+    int? minutes(String? value) {
+      if (value == null || value.isEmpty) return null;
+      final parts = value.split(':');
+      return int.parse(parts[0]) * 60 + int.parse(parts[1]);
+    }
+
+    final start = minutes(course.startTime);
+    final end = minutes(course.endTime);
+    if (course.weekday == null || start == null || end == null) return;
+    for (final other in _courses) {
+      if (other.id == course.id || other.weekday != course.weekday) continue;
+      final otherStart = minutes(other.startTime);
+      final otherEnd = minutes(other.endTime);
+      if (otherStart == null || otherEnd == null) continue;
+      if (start < otherEnd && otherStart < end) {
+        throw StudyMateApiException(
+          'Ce créneau chevauche « ${other.title} » le même jour.',
+          code: 'course_schedule_conflict',
+        );
+      }
+    }
+  }
+
+  /// Création confirmée par le serveur : l'identifiant local est remplacé.
+  Future<void> _onSyncCreated(
+    String entity,
+    String localId,
+    Map<String, dynamic> json,
+  ) async {
+    switch (entity) {
+      case 'task':
+        final saved = StudyTask.fromJson(json);
+        _tasks = [for (final t in _tasks) t.id == localId ? saved : t];
+        await _db.deleteTask(localId);
+        await _db.upsertTask(saved);
+        // Une tâche peut pointer vers un cours créé hors ligne.
+      case 'course':
+        final saved = StudyCourse.fromJson(json);
+        _courses = [for (final c in _courses) c.id == localId ? saved : c];
+        _tasks = [
+          for (final t in _tasks)
+            t.courseId == localId
+                ? StudyTask(
+                    id: t.id,
+                    title: t.title,
+                    description: t.description,
+                    priority: t.priority,
+                    deadline: t.deadline,
+                    courseId: saved.id,
+                    isCompleted: t.isCompleted,
+                  )
+                : t,
+        ];
+        _refreshWeeklySchedule();
+        await _db.deleteCourse(localId);
+        await _db.upsertCourse(saved);
+      case 'note':
+        final saved = StudyNote.fromJson(json);
+        _notes = [for (final n in _notes) n.id == localId ? saved : n];
+        await _db.deleteNote(localId);
+        await _db.upsertNote(saved);
+      default:
+        return;
     }
     notifyListeners();
   }
 
-  Future<void> addFlashcardDeck({
+  /// Refus définitif : on annule le changement local puis on se recale sur
+  /// le serveur, pour que l'écran reflète la vérité.
+  Future<void> _onSyncRejected(OutboxEntry entry, String message) async {
+    if (!const {'task', 'course', 'note'}.contains(entry.entity)) return;
+    _errorMessage = sync?.takeLastRejection() ?? message;
+    if (entry.op == OutboxOp.create) {
+      switch (entry.entity) {
+        case 'task':
+          _tasks = _tasks.where((t) => t.id != entry.entityId).toList();
+          await _db.deleteTask(entry.entityId);
+        case 'course':
+          _courses = _courses.where((c) => c.id != entry.entityId).toList();
+          _refreshWeeklySchedule();
+          await _db.deleteCourse(entry.entityId);
+        case 'note':
+          _notes = _notes.where((n) => n.id != entry.entityId).toList();
+          await _db.deleteNote(entry.entityId);
+      }
+    } else {
+      try {
+        switch (entry.entity) {
+          case 'task':
+            _tasks = await _api.getTasks();
+            await _db.upsertTasks(_tasks);
+          case 'course':
+            _courses = await _api.getCourses();
+            _refreshWeeklySchedule();
+            await _db.upsertCourses(_courses);
+          case 'note':
+            _notes = await _api.getNotes();
+            await _db.upsertNotes(_notes);
+        }
+      } on StudyMateApiException catch (_) {}
+    }
+    notifyListeners();
+  }
+
+  /// Réapplique les modifications en attente sur une liste reçue du serveur
+  /// (sinon un rechargement ferait « disparaître » le travail hors ligne).
+  List<T> _overlay<T>(
+    List<T> server,
+    List<T> local,
+    List<OutboxEntry> pending,
+    String entity,
+    String Function(T) idOf,
+  ) {
+    final ops = pending.where((e) => e.entity == entity).toList();
+    if (ops.isEmpty) return server;
+    final localById = {for (final item in local) idOf(item): item};
+    final deleted = {
+      for (final e in ops)
+        if (e.op == OutboxOp.delete) e.entityId,
+    };
+    final changed = {
+      for (final e in ops)
+        if (e.op != OutboxOp.delete && localById.containsKey(e.entityId)) e.entityId,
+    };
+    final result = [
+      for (final item in server)
+        if (!deleted.contains(idOf(item)))
+          changed.contains(idOf(item)) ? localById[idOf(item)] as T : item,
+    ];
+    final serverIds = {for (final item in server) idOf(item)};
+    final created = [
+      for (final id in changed)
+        if (!serverIds.contains(id)) localById[id] as T,
+    ];
+    return [...created, ...result];
+  }
+
+  Future<StudyFlashcardDeck> addFlashcardDeck({
     required String title,
     String? description,
     String? courseId,
@@ -373,11 +573,48 @@ class StudyController extends ChangeNotifier {
       _flashcardDecks = [saved, ..._flashcardDecks];
       await _db.upsertDeck(saved);
       _clearError();
+      notifyListeners();
+      return saved;
     } on StudyMateApiException catch (error) {
       _setError(error);
       rethrow;
     }
+  }
+
+  /// Fait générer des cartes par l'IA dans [deck].
+  Future<StudyFlashcardGeneration> generateFlashcards({
+    required StudyFlashcardDeck deck,
+    String? noteId,
+    String? documentId,
+    String? text,
+    int maxCards = 8,
+  }) async {
+    _requireBackendSession();
+    final result = await _api.generateFlashcards(
+      deckId: deck.id,
+      noteId: noteId,
+      documentId: documentId,
+      text: text,
+      maxCards: maxCards,
+    );
+    await _db.upsertFlashcards(result.cards);
+    if (result.usedAi && deck.source != 'ai_generated') {
+      final updated = StudyFlashcardDeck(
+        id: deck.id,
+        title: deck.title,
+        description: deck.description,
+        courseId: deck.courseId,
+        source: 'ai_generated',
+        createdAt: deck.createdAt,
+        updatedAt: DateTime.now(),
+      );
+      _flashcardDecks = [
+        for (final item in _flashcardDecks) item.id == deck.id ? updated : item,
+      ];
+      await _db.upsertDeck(updated);
+    }
     notifyListeners();
+    return result;
   }
 
   Future<void> updateFlashcardDeck({
@@ -623,8 +860,11 @@ class StudyController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> _refreshWeeklySchedule() async {
-    _weeklySchedule = await _api.getWeeklySchedule();
+  void _refreshWeeklySchedule() {
+    _weeklySchedule = [
+      for (final course in _courses)
+        if (course.weekday != null) course,
+    ];
   }
 
   Future<void> _refreshEvaluationSummary() async {

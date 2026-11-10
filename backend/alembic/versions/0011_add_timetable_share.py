@@ -6,7 +6,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0011_add_timetable_share"
-down_revision: str | None = "0010_extend_course_schedule_fields"
+down_revision: str | None = "0010b_course_schedule_fields"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 

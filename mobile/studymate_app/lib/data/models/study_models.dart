@@ -249,7 +249,7 @@ class StudyFlashcard {
             : DateTime.parse(json['due_at'] as String).toLocal(),
         repetitions: json['repetitions'] as int? ?? 0,
         intervalDays: json['interval_days'] as int? ?? 0,
-        easeFactor: (json['ease_factor'] as num?)?.toDouble() ?? 2.5,
+        easeFactor: _toDouble(json['ease_factor']) ?? 2.5,
       );
 
   Map<String, dynamic> toJson() => {
@@ -290,7 +290,7 @@ class StudyFlashcardDeckProgress {
         totalReviews: json['total_reviews'] as int,
         correctAnswers: json['correct_answers'] as int,
         incorrectAnswers: json['incorrect_answers'] as int,
-        accuracyRate: (json['accuracy_rate'] as num?)?.toDouble(),
+        accuracyRate: _toDouble(json['accuracy_rate']),
       );
 }
 
@@ -317,7 +317,7 @@ class StudyFlashcardReviewResult {
         totalReviews: json['total_reviews'] as int,
         correctAnswers: json['correct_answers'] as int,
         incorrectAnswers: json['incorrect_answers'] as int,
-        accuracyRate: (json['accuracy_rate'] as num?)?.toDouble(),
+        accuracyRate: _toDouble(json['accuracy_rate']),
       );
 }
 
@@ -358,8 +358,8 @@ class StudyEvaluation {
         scheduledAt: json['scheduled_at'] == null
             ? null
             : DateTime.parse(json['scheduled_at'] as String).toLocal(),
-        score: (json['score'] as num?)?.toDouble(),
-        maxScore: (json['max_score'] as num?)?.toDouble(),
+        score: _toDouble(json['score']),
+        maxScore: _toDouble(json['max_score']),
         notes: json['notes'] as String?,
         createdAt: DateTime.parse(json['created_at'] as String).toLocal(),
         updatedAt: DateTime.parse(json['updated_at'] as String).toLocal(),
@@ -395,9 +395,9 @@ class StudyEvaluationTrendPoint {
       StudyEvaluationTrendPoint(
         title: json['title'] as String,
         date: DateTime.parse(json['date'] as String).toLocal(),
-        score: (json['score'] as num).toDouble(),
-        maxScore: (json['max_score'] as num).toDouble(),
-        percentage: (json['percentage'] as num).toDouble(),
+        score: (_toDouble(json['score']) ?? 0),
+        maxScore: (_toDouble(json['max_score']) ?? 0),
+        percentage: (_toDouble(json['percentage']) ?? 0),
       );
 }
 
@@ -415,7 +415,7 @@ class StudyCourseEvaluationAverage {
   factory StudyCourseEvaluationAverage.fromJson(Map<String, dynamic> json) =>
       StudyCourseEvaluationAverage(
         courseId: json['course_id'] as String?,
-        averagePercentage: (json['average_percentage'] as num).toDouble(),
+        averagePercentage: (_toDouble(json['average_percentage']) ?? 0),
         evaluationCount: json['evaluation_count'] as int,
       );
 }
@@ -436,7 +436,7 @@ class StudyEvaluationSummary {
   factory StudyEvaluationSummary.fromJson(Map<String, dynamic> json) =>
       StudyEvaluationSummary(
         gradedCount: json['graded_count'] as int,
-        averagePercentage: (json['average_percentage'] as num?)?.toDouble(),
+        averagePercentage: _toDouble(json['average_percentage']),
         courseAverages: (json['course_averages'] as List<dynamic>)
             .map(
               (item) => StudyCourseEvaluationAverage.fromJson(
@@ -453,3 +453,24 @@ class StudyEvaluationSummary {
             .toList(growable: false),
       );
 }
+
+/// Résultat d'une génération de flashcards par l'IA.
+class StudyFlashcardGeneration {
+  const StudyFlashcardGeneration({required this.source, required this.cards});
+
+  /// `ai` si le modèle a produit les cartes, `rules` si le backend a dû
+  /// se rabattre sur l'extraction automatique (IA indisponible).
+  final String source;
+  final List<StudyFlashcard> cards;
+
+  bool get usedAi => source == 'ai';
+}
+
+
+/// Les champs `Decimal` du backend arrivent en texte (« 2.50 ») : on accepte
+/// un nombre ou une chaîne.
+double? _toDouble(Object? value) => switch (value) {
+      num() => value.toDouble(),
+      String() => double.tryParse(value),
+      _ => null,
+    };

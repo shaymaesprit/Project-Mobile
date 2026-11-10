@@ -86,7 +86,6 @@ class _SignInPageState extends State<SignInPage> {
                   decoration: const InputDecoration(
                     labelText: 'Email',
                     prefixIcon: Icon(Icons.mail_outline),
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -138,7 +137,25 @@ class _SignInPageState extends State<SignInPage> {
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: _loading ? null : _signInWithGoogle,
-            icon: const Icon(Icons.account_circle_outlined),
+            icon: ShaderMask(
+              shaderCallback: (bounds) => const SweepGradient(
+                colors: [
+                  Color(0xFF4285F4),
+                  Color(0xFF34A853),
+                  Color(0xFFFBBC05),
+                  Color(0xFFEA4335),
+                  Color(0xFF4285F4),
+                ],
+              ).createShader(bounds),
+              child: const Text(
+                'G',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
             label: const Padding(
               padding: EdgeInsets.symmetric(vertical: 10),
               child: Text('Continuer avec Google'),

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../data/models/study_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
+import 'flashcard_generate_page.dart';
+import 'study_dashboard.dart';
 
 class StudyToolsPage extends StatefulWidget {
   const StudyToolsPage({
@@ -45,8 +48,8 @@ class _StudyToolsPageState extends State<StudyToolsPage> {
                     ),
                     ButtonSegment(
                       value: false,
-                      icon: Icon(Icons.insights_outlined),
-                      label: Text('Évaluations'),
+                      icon: Icon(Icons.dashboard_rounded),
+                      label: Text('Tableau de bord'),
                     ),
                   ],
                   selected: {_showFlashcards},
@@ -62,9 +65,17 @@ class _StudyToolsPageState extends State<StudyToolsPage> {
                     controller: widget.controller,
                     onRefresh: widget.onRefresh,
                   )
-                : _EvaluationsSection(
+                : StudyDashboardSection(
                     controller: widget.controller,
                     onRefresh: widget.onRefresh,
+                    onOpenEvaluations: () => Navigator.of(context).push<void>(
+                      MaterialPageRoute(
+                        builder: (_) => EvaluationsPage(
+                          controller: widget.controller,
+                          onRefresh: widget.onRefresh,
+                        ),
+                      ),
+                    ),
                   ),
           ),
         ],
@@ -97,19 +108,20 @@ class _FlashcardDecksSection extends StatelessWidget {
                         ),
                   ),
                 ),
-                FilledButton.tonalIcon(
-                  onPressed: () => _openDeckForm(context),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Créer'),
+                FilledButton.icon(
+                  onPressed: () => _openGenerator(context),
+                  icon: const Icon(Icons.auto_awesome_rounded),
+                  label: const Text('Générer avec l’IA'),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             if (controller.flashcardDecks.isEmpty)
               const _StudyEmptyCard(
-                icon: Icons.style_outlined,
+                icon: Icons.auto_awesome_outlined,
                 title: 'Aucun jeu de flashcards',
-                message: 'Crée un jeu pour organiser tes cartes par cours.',
+                message: 'Choisis une note ou colle un texte : l’IA crée '
+                    'les questions et les réponses pour toi.',
               )
             else
               for (final deck in controller.flashcardDecks) ...[
@@ -120,7 +132,24 @@ class _FlashcardDecksSection extends StatelessWidget {
                           Theme.of(context).colorScheme.secondaryContainer,
                       child: const Icon(Icons.style_rounded),
                     ),
-                    title: Text(deck.title),
+                    title: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            deck.title,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (deck.source == 'ai_generated') ...[
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 16,
+                            color: AppPalette.violet,
+                          ),
+                        ],
+                      ],
+                    ),
                     subtitle: Text(
                       [
                         _courseName(controller, deck.courseId) ?? 'Sans cours',
@@ -161,17 +190,23 @@ class _FlashcardDecksSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
               ],
-            const SizedBox(height: 12),
-            Text(
-              'Les cartes créées manuellement sont déjà prêtes à accueillir '
-              'des jeux générés automatiquement.',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-            ),
           ],
         ),
       );
+
+  Future<void> _openGenerator(BuildContext context) async {
+    final deck = await Navigator.of(context).push<StudyFlashcardDeck>(
+      MaterialPageRoute(
+        builder: (_) => FlashcardGeneratePage(controller: controller),
+      ),
+    );
+    if (deck == null || !context.mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => FlashcardDeckPage(controller: controller, deck: deck),
+      ),
+    );
+  }
 
   Future<void> _openDeckForm(
     BuildContext context, {
@@ -276,7 +311,6 @@ class _FlashcardDeckFormPageState extends State<FlashcardDeckFormPage> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Nom du jeu *',
-                  border: OutlineInputBorder(),
                 ),
                 validator: (value) => value == null || value.trim().isEmpty
                     ? 'Le nom du jeu est obligatoire.'
@@ -289,7 +323,6 @@ class _FlashcardDeckFormPageState extends State<FlashcardDeckFormPage> {
                 maxLines: 4,
                 decoration: const InputDecoration(
                   labelText: 'Description',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 14),
@@ -297,7 +330,6 @@ class _FlashcardDeckFormPageState extends State<FlashcardDeckFormPage> {
                 initialValue: _courseId,
                 decoration: const InputDecoration(
                   labelText: 'Cours associé',
-                  border: OutlineInputBorder(),
                 ),
                 items: [
                   const DropdownMenuItem<String?>(
@@ -383,9 +415,9 @@ class _FlashcardDeckPageState extends State<FlashcardDeckPage> {
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: Text(widget.deck.title)),
         floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => _openCardForm(),
-          icon: const Icon(Icons.add_rounded),
-          label: const Text('Ajouter une carte'),
+          onPressed: _generateMore,
+          icon: const Icon(Icons.auto_awesome_rounded),
+          label: const Text('Générer avec l’IA'),
         ),
         body: RefreshIndicator(
           onRefresh: _load,
@@ -422,7 +454,8 @@ class _FlashcardDeckPageState extends State<FlashcardDeckPage> {
                 const _StudyEmptyCard(
                   icon: Icons.style_outlined,
                   title: 'Ce jeu est vide',
-                  message: 'Ajoute une question et sa réponse pour commencer.',
+                  message: 'Touche « Générer avec l’IA » pour créer des '
+                      'cartes à partir d’une note ou d’un texte.',
                 )
               else
                 for (final card in _cards) ...[
@@ -458,6 +491,18 @@ class _FlashcardDeckPageState extends State<FlashcardDeckPage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _generateMore() async {
+    final deck = await Navigator.of(context).push<StudyFlashcardDeck>(
+      MaterialPageRoute(
+        builder: (_) => FlashcardGeneratePage(
+          controller: widget.controller,
+          deck: widget.deck,
+        ),
+      ),
+    );
+    if (deck != null && mounted) await _load();
   }
 
   Future<void> _openCardForm({StudyFlashcard? card}) async {
@@ -669,7 +714,6 @@ class _FlashcardFormPageState extends State<FlashcardFormPage> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Question *',
-                  border: OutlineInputBorder(),
                 ),
                 validator: _requiredValidator,
               ),
@@ -681,7 +725,6 @@ class _FlashcardFormPageState extends State<FlashcardFormPage> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Réponse *',
-                  border: OutlineInputBorder(),
                 ),
                 validator: _requiredValidator,
               ),
@@ -886,6 +929,30 @@ class _FlashcardReviewPageState extends State<FlashcardReviewPage> {
       if (mounted) setState(() => _isSaving = false);
     }
   }
+}
+
+/// Liste et saisie des examens / devoirs (ouverte depuis le tableau de bord).
+class EvaluationsPage extends StatelessWidget {
+  const EvaluationsPage({
+    super.key,
+    required this.controller,
+    required this.onRefresh,
+  });
+
+  final StudyController controller;
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('Mes évaluations')),
+        body: ListenableBuilder(
+          listenable: controller,
+          builder: (context, _) => _EvaluationsSection(
+            controller: controller,
+            onRefresh: onRefresh,
+          ),
+        ),
+      );
 }
 
 class _EvaluationsSection extends StatelessWidget {
@@ -1247,7 +1314,6 @@ class _EvaluationFormPageState extends State<EvaluationFormPage> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Nom *',
-                  border: OutlineInputBorder(),
                 ),
                 validator: (value) => value == null || value.trim().isEmpty
                     ? 'Le nom est obligatoire.'
@@ -1258,7 +1324,6 @@ class _EvaluationFormPageState extends State<EvaluationFormPage> {
                 initialValue: _type,
                 decoration: const InputDecoration(
                   labelText: 'Type',
-                  border: OutlineInputBorder(),
                 ),
                 items: [
                   for (final entry in _types.entries)
@@ -1276,7 +1341,6 @@ class _EvaluationFormPageState extends State<EvaluationFormPage> {
                 initialValue: _courseId,
                 decoration: const InputDecoration(
                   labelText: 'Cours associé',
-                  border: OutlineInputBorder(),
                 ),
                 items: [
                   const DropdownMenuItem<String?>(
@@ -1311,7 +1375,6 @@ class _EvaluationFormPageState extends State<EvaluationFormPage> {
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'Note obtenue',
-                        border: OutlineInputBorder(),
                       ),
                       validator: (value) => _validateNumber(value, 'La note'),
                     ),
@@ -1324,7 +1387,6 @@ class _EvaluationFormPageState extends State<EvaluationFormPage> {
                           const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         labelText: 'Note maximale',
-                        border: OutlineInputBorder(),
                       ),
                       validator: (value) =>
                           _validateNumber(value, 'La note maximale'),
@@ -1339,7 +1401,6 @@ class _EvaluationFormPageState extends State<EvaluationFormPage> {
                 maxLines: 4,
                 decoration: const InputDecoration(
                   labelText: 'Commentaire',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 20),

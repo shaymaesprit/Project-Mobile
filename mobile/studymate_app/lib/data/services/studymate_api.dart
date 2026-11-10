@@ -2,15 +2,32 @@ import 'package:dio/dio.dart';
 
 import '../../core/config/api_config.dart';
 import '../models/ai_models.dart';
+import '../models/document_models.dart';
 import '../models/event_models.dart';
+import '../models/planning_models.dart';
 import '../models/study_models.dart';
 
 typedef FirebaseTokenProvider = Future<String?> Function();
 
 class StudyMateApiException implements Exception {
-  const StudyMateApiException(this.message);
+  const StudyMateApiException(
+    this.message, {
+    this.code,
+    this.statusCode,
+    this.isNetworkError = false,
+  });
 
   final String message;
+
+  /// Code d'erreur métier renvoyé par le backend (ex. `ai_consent_required`).
+  final String? code;
+
+  /// Statut HTTP, quand le serveur a répondu.
+  final int? statusCode;
+
+  /// `true` si le serveur n'a pas pu être joint (hors ligne, délai dépassé) :
+  /// l'opération peut être rejouée plus tard sans risque.
+  final bool isNetworkError;
 
   @override
   String toString() => message;
@@ -210,6 +227,88 @@ class StudyMateApi {
     return StudyNote.fromJson(response);
   }
 
+  Future<StudyNote> updateNote(StudyNote note) async {
+    final response = await _put<Map<String, dynamic>>(
+      '/notes/${note.id}',
+      data: {'title': note.title, 'content': note.content},
+    );
+    return StudyNote.fromJson(response);
+  }
+
+  // ── Emploi du temps : agenda réel (jours fériés Nager.Date) ───────────────
+
+  Future<WeekAgenda> getWeekAgenda(DateTime weekStart) async {
+    final day = '${weekStart.year.toString().padLeft(4, '0')}-'
+        '${weekStart.month.toString().padLeft(2, '0')}-'
+        '${weekStart.day.toString().padLeft(2, '0')}';
+    final path = Uri(
+      path: '/schedule/week-agenda',
+      queryParameters: {'week_start': day},
+    ).toString();
+    return WeekAgenda.fromJson(await _get<Map<String, dynamic>>(path));
+  }
+
+  // ── Partage de l'emploi du temps (QR code via QR Server) ──────────────────
+
+  Future<TimetableShare> createTimetableShare({int days = 7}) async =>
+      TimetableShare.fromJson(
+        await _post<Map<String, dynamic>>(
+          '/timetable/shares?days=$days',
+          data: const <String, dynamic>{},
+        ),
+      );
+
+  Future<List<TimetableShare>> getTimetableShares() async {
+    final response = await _get<List<dynamic>>('/timetable/shares');
+    return response
+        .map((item) => TimetableShare.fromJson(_asJson(item)))
+        .toList();
+  }
+
+  Future<void> revokeTimetableShare(String id) =>
+      _delete('/timetable/shares/$id');
+
+  // ── Planificateur intelligent de tâches ───────────────────────────────────
+
+  Future<TaskPlan> getTaskPlan({int days = 7}) async => TaskPlan.fromJson(
+      await _get<Map<String, dynamic>>('/tasks/plan?days=$days'));
+
+  /// Découpe une tâche en étapes avec l'IA (Groq). Avec [createTasks], les
+  /// étapes sont créées comme sous-tâches.
+  Future<List<TaskBreakdownStep>> breakdownTask(
+    String taskId, {
+    bool createTasks = false,
+  }) async {
+    try {
+      final options = await _authorizedOptions();
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/ai/tasks/$taskId/breakdown',
+        data: {'create_tasks': createTasks},
+        options: options.copyWith(receiveTimeout: const Duration(seconds: 60)),
+      );
+      final body = _asJson(response.data);
+      return [
+        for (final item in (body['steps'] as List<dynamic>? ?? const []))
+          TaskBreakdownStep.fromJson(_asJson(item)),
+      ];
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
+  // ── Enrichissement des notes (Wikipédia) ──────────────────────────────────
+
+  Future<List<WikipediaResult>> searchWikipedia(String query) async {
+    final path = Uri(
+      path: '/knowledge/wikipedia',
+      queryParameters: {'q': query},
+    ).toString();
+    final response = await _get<List<dynamic>>(path);
+    return response
+        .map((item) => WikipediaResult.fromJson(_asJson(item)))
+        .toList();
+  }
+
   Future<void> deleteNote(String id) async {
     await _delete('/notes/$id');
   }
@@ -278,6 +377,120 @@ class StudyMateApi {
     );
     return StudyFlashcard.fromJson(response);
   }
+
+  /// Fait générer des cartes par l'IA dans [deckId], à partir d'une note
+  /// ([noteId]) ou d'un texte collé ([text]).
+  Future<StudyFlashcardGeneration> generateFlashcards({
+    required String deckId,
+    String? noteId,
+    String? documentId,
+    String? text,
+    int maxCards = 8,
+  }) async {
+    try {
+      final options = await _authorizedOptions();
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/flashcard-decks/$deckId/generate',
+        data: {
+          if (noteId != null) 'note_id': noteId,
+          if (documentId != null) 'document_id': documentId,
+          if (text != null) 'text': text,
+          'max_cards': maxCards,
+        },
+        // L'IA peut prendre plus longtemps qu'une requête classique.
+        options: options.copyWith(
+          receiveTimeout: const Duration(seconds: 60),
+        ),
+      );
+      final body = _asJson(response.data);
+      return StudyFlashcardGeneration(
+        source: body['source'] == 'ai' ? 'ai' : 'rules',
+        cards: [
+          for (final item in (body['cards'] as List<dynamic>? ?? const []))
+            StudyFlashcard.fromJson(_asJson(item)),
+        ],
+      );
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
+  // ── PDF de cours ──────────────────────────────────────────────────────
+
+  Future<List<CourseDocument>> listCourseDocuments(String courseId) async {
+    final response = await _get<List<dynamic>>('/courses/$courseId/documents');
+    return [for (final item in response) CourseDocument.fromJson(_asJson(item))];
+  }
+
+  Future<CourseDocument> uploadCourseDocument({
+    required String courseId,
+    required List<int> bytes,
+    required String filename,
+    String? title,
+    void Function(double progress)? onProgress,
+  }) async {
+    try {
+      final options = await _authorizedOptions();
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/courses/$courseId/documents',
+        data: FormData.fromMap({
+          'file': MultipartFile.fromBytes(
+            bytes,
+            filename: filename,
+            contentType: DioMediaType('application', 'pdf'),
+          ),
+          if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+        }),
+        options: options.copyWith(
+          sendTimeout: const Duration(minutes: 2),
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+        onSendProgress: onProgress == null
+            ? null
+            : (sent, total) {
+                if (total > 0) onProgress(sent / total);
+              },
+      );
+      return CourseDocument.fromJson(_asJson(response.data));
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
+  /// Contenu brut du PDF (pour l'afficher dans l'app).
+  Future<List<int>> downloadDocument(
+    String documentId, {
+    void Function(double progress)? onProgress,
+  }) async {
+    try {
+      final options = await _authorizedOptions();
+      final response = await _dio.get<List<int>>(
+        '/documents/$documentId/file',
+        options: options.copyWith(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(minutes: 2),
+        ),
+        onReceiveProgress: onProgress == null
+            ? null
+            : (received, total) {
+                if (total > 0) onProgress(received / total);
+              },
+      );
+      return response.data ?? const [];
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
+  }
+
+  Future<CourseDocument> renameDocument(String documentId, String title) async {
+    final response = await _patch<Map<String, dynamic>>(
+      '/documents/$documentId',
+      data: {'title': title},
+    );
+    return CourseDocument.fromJson(response);
+  }
+
+  Future<void> deleteDocument(String documentId) => _delete('/documents/$documentId');
 
   Future<StudyFlashcard> updateFlashcard(StudyFlashcard flashcard) async {
     final response = await _put<Map<String, dynamic>>(
@@ -648,7 +861,16 @@ class StudyMateApi {
         'Connecte-toi avec Firebase pour synchroniser tes données.',
       );
     }
-    final token = await tokenProvider();
+    final String? token;
+    try {
+      token = await tokenProvider();
+    } catch (_) {
+      // Hors ligne, Firebase ne peut pas renouveler un jeton expiré.
+      throw const StudyMateApiException(
+        'Impossible de vérifier ta session sans connexion.',
+        isNetworkError: true,
+      );
+    }
     if (token == null || token.isEmpty) {
       throw const StudyMateApiException(
         'La session Firebase a expiré. Reconnecte-toi.',
@@ -661,14 +883,20 @@ class StudyMateApi {
     final responseData = error.response?.data;
     if (responseData is Map<String, dynamic>) {
       final detail = responseData['detail'];
+      final code = responseData['code'];
       if (detail is String && detail.isNotEmpty) {
-        return StudyMateApiException(detail);
+        return StudyMateApiException(
+          detail,
+          code: code is String ? code : null,
+          statusCode: error.response?.statusCode,
+        );
       }
     }
 
     if (error.response?.statusCode == 401) {
       return const StudyMateApiException(
         'Session expirée. Reconnecte-toi pour continuer.',
+        statusCode: 401,
       );
     }
 
@@ -680,12 +908,37 @@ class StudyMateApi {
         StudyMateApiException(
           'API inaccessible à ${ApiConfig.baseUrl}. Vérifie que le backend '
           'est démarré et que l’URL est correcte.',
+          isNetworkError: true,
+        ),
+      _ when error.response == null => StudyMateApiException(
+          'Connexion au serveur impossible. Réessaie dans un instant.',
+          isNetworkError: true,
         ),
       _ => StudyMateApiException(
           'La requête a échoué${error.response?.statusCode == null ? '' : ' '
               '(${error.response!.statusCode})'}. Réessaie dans un instant.',
+          statusCode: error.response?.statusCode,
         ),
     };
+  }
+
+  /// Requête brute utilisée par la synchronisation hors ligne.
+  Future<Map<String, dynamic>?> syncRequest(
+    String method,
+    String path, {
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final response = await _dio.request<dynamic>(
+        path,
+        data: data,
+        options: (await _authorizedOptions()).copyWith(method: method),
+      );
+      final body = response.data;
+      return body is Map<String, dynamic> ? body : null;
+    } on DioException catch (error) {
+      throw _toApiException(error);
+    }
   }
 
   Map<String, dynamic> _asJson(Object? value) {

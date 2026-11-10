@@ -24,7 +24,7 @@ class StreakCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF6B6B).withOpacity(0.4),
+            color: const Color(0xFFFF6B6B).withValues(alpha: 0.4),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -38,7 +38,7 @@ class StreakCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: const Icon(
@@ -48,7 +48,7 @@ class StreakCard extends StatelessWidget {
                 ),
               ).animate(onPlay: (controller) => controller.repeat()).shimmer(
                     duration: 2000.ms,
-                    color: Colors.white.withOpacity(0.5),
+                    color: Colors.white.withValues(alpha: 0.5),
                   ),
               const SizedBox(width: 16),
               Expanded(
@@ -112,7 +112,7 @@ class StreakCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isCompleted
                           ? Colors.white
-                          : Colors.white.withOpacity(0.2),
+                          : Colors.white.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
                     child: isCompleted
@@ -130,7 +130,7 @@ class StreakCard extends StatelessWidget {
                   Text(
                     ['L', 'M', 'M', 'J', 'V', 'S', 'D'][index],
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.7),
+                      color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 10,
                     ),
                   ),

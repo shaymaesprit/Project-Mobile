@@ -324,6 +324,29 @@ class EventsLocalDb {
     );
   }
 
+  /// Écrit (ou remplace) une ligne du calendrier — utilisé pour afficher
+  /// tout de suite un événement créé ou modifié hors ligne.
+  Future<void> upsertCalendarItem(String userId, CalendarItem item) async {
+    final db = await _database;
+    await db.insert(
+      'calendar_items',
+      {
+        'id': item.id,
+        'user_id': userId,
+        'kind': item.kind,
+        'title': item.title,
+        'starts_at': _ms(item.startsAt),
+        'ends_at': item.endsAt == null ? null : _ms(item.endsAt!),
+        'category': item.category,
+        'status': item.status,
+        'location': item.location,
+        'completed': item.completed == null ? null : (item.completed! ? 1 : 0),
+        'synced_at': DateTime.now().toUtc().millisecondsSinceEpoch,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
   /// Supprime un événement et ses lignes dérivées du calendrier.
   Future<void> deleteEvent(String userId, String id) async {
     final db = await _database;

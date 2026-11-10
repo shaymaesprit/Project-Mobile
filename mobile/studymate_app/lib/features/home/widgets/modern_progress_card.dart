@@ -32,7 +32,7 @@ class ModernProgressCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
           BoxShadow(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -49,7 +49,7 @@ class ModernProgressCard extends StatelessWidget {
               height: 120,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
             ),
           ),
@@ -61,7 +61,7 @@ class ModernProgressCard extends StatelessWidget {
               height: 100,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.08),
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -106,7 +106,7 @@ class ModernProgressCard extends StatelessWidget {
                               color: Theme.of(context)
                                   .colorScheme
                                   .onPrimaryContainer
-                                  .withOpacity(0.8),
+                                  .withValues(alpha: 0.8),
                               fontSize: 14,
                             ),
                           )
@@ -124,7 +124,7 @@ class ModernProgressCard extends StatelessWidget {
                       backgroundColor: Theme.of(context)
                           .colorScheme
                           .surface
-                          .withOpacity(0.3),
+                          .withValues(alpha: 0.3),
                     )
                         .animate()
                         .scale(
@@ -193,7 +193,7 @@ class _StatItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
+        color: Colors.white.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -219,7 +219,7 @@ class _StatItem extends StatelessWidget {
               color: Theme.of(context)
                   .colorScheme
                   .onPrimaryContainer
-                  .withOpacity(0.7),
+                  .withValues(alpha: 0.7),
               fontSize: 11,
             ),
           ),

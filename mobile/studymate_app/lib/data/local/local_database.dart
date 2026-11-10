@@ -9,6 +9,7 @@
 ///
 /// All public methods are safe to call from any isolate because sqflite
 /// serialises writes internally.
+library;
 
 import 'package:path/path.dart' as p;
 import 'package:sqflite/sqflite.dart';
@@ -289,8 +290,7 @@ class LocalDatabase {
     return rows.map(_rowToTask).toList();
   }
 
-  Future<void> upsertTask(StudyTask task) =>
-      _upsert(_tTasks, _taskToRow(task));
+  Future<void> upsertTask(StudyTask task) => _upsert(_tTasks, _taskToRow(task));
 
   Future<void> upsertTasks(List<StudyTask> tasks) =>
       _upsertAll(_tTasks, tasks.map(_taskToRow).toList());
@@ -332,8 +332,7 @@ class LocalDatabase {
     return rows.map(_rowToNote).toList();
   }
 
-  Future<void> upsertNote(StudyNote note) =>
-      _upsert(_tNotes, _noteToRow(note));
+  Future<void> upsertNote(StudyNote note) => _upsert(_tNotes, _noteToRow(note));
 
   Future<void> upsertNotes(List<StudyNote> notes) =>
       _upsertAll(_tNotes, notes.map(_noteToRow).toList());
@@ -500,20 +499,24 @@ class LocalDatabase {
   /// Returns quick stats useful for the offline dashboard.
   Future<LocalCacheStats> getStats() async {
     final db = await _database;
-    final courseCount =
-        Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_tCourses')) ?? 0;
-    final taskCount =
-        Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_tTasks')) ?? 0;
+    final courseCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_tCourses')) ??
+        0;
+    final taskCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_tTasks')) ??
+        0;
     final completedCount = Sqflite.firstIntValue(
           await db.rawQuery(
             'SELECT COUNT(*) FROM $_tTasks WHERE is_completed = 1',
           ),
         ) ??
         0;
-    final noteCount =
-        Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_tNotes')) ?? 0;
-    final deckCount =
-        Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM $_tDecks')) ?? 0;
+    final noteCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_tNotes')) ??
+        0;
+    final deckCount = Sqflite.firstIntValue(
+            await db.rawQuery('SELECT COUNT(*) FROM $_tDecks')) ??
+        0;
     final cardCount = Sqflite.firstIntValue(
           await db.rawQuery('SELECT COUNT(*) FROM $_tFlashcards'),
         ) ??

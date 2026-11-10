@@ -574,7 +574,6 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
             maxLines: 4,
             textInputAction: TextInputAction.done,
             decoration: const InputDecoration(
-              border: OutlineInputBorder(),
               hintText: 'Rendu du rapport vendredi avant 18h…',
             ),
           ),

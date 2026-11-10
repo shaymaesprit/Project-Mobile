@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Response, status
 from app.api.deps import get_current_uid
 from app.api.dependencies import (
     get_flashcard_deck_service,
+    get_flashcard_generator,
     get_flashcard_service,
 )
 from app.core.exceptions import InvalidReferenceError
@@ -15,8 +16,11 @@ from app.schemas.flashcard import (
     FlashcardDeckProgress,
     FlashcardDeckResponse,
     FlashcardDeckUpdate,
+    FlashcardGenerateRequest,
+    FlashcardGenerateResponse,
     FlashcardResponse,
 )
+from app.services.flashcard_generator import FlashcardGeneratorService
 from app.services.flashcard_service import FlashcardService
 from app.services.owned_resource_service import OwnedResourceService
 
@@ -105,3 +109,26 @@ def read_deck_progress(
     service: FlashcardService = Depends(get_flashcard_service),
 ) -> dict:
     return service.progress(deck_id, uid)
+
+
+@router.post(
+    "/{deck_id}/generate",
+    response_model=FlashcardGenerateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def generate_deck_cards(
+    deck_id: UUID,
+    payload: FlashcardGenerateRequest,
+    uid: str = Depends(get_current_uid),
+    generator: FlashcardGeneratorService = Depends(get_flashcard_generator),
+) -> dict:
+    """Génère des flashcards avec l'IA à partir d'une note, d'un PDF ou d'un texte."""
+    cards, source = generator.generate(
+        deck_id,
+        uid,
+        note_id=payload.note_id,
+        document_id=payload.document_id,
+        raw_text=payload.text.strip() if payload.text else None,
+        max_cards=payload.max_cards,
+    )
+    return {"source": source, "cards": cards}

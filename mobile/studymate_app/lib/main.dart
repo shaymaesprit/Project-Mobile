@@ -4,8 +4,11 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 
 import 'core/config/firebase_config.dart';
+import 'core/theme/app_theme.dart';
 import 'data/local/events_local_db.dart';
+import 'data/local/usage_tracker.dart';
 import 'data/services/studymate_api.dart';
+import 'data/sync/sync_service.dart';
 import 'features/auth/change_password_page.dart';
 import 'features/auth/email_verification_page.dart';
 import 'features/auth/sign_in_page.dart';
@@ -60,6 +63,7 @@ class _StudyMateAppState extends State<StudyMateApp> {
   late final StudyMateApi _api;
   late final StudyController _controller;
   late final PushService _push;
+  SyncService? _sync;
   final _messengerKey = GlobalKey<ScaffoldMessengerState>();
   ThemeMode _themeMode = ThemeMode.system;
 
@@ -78,46 +82,28 @@ class _StudyMateAppState extends State<StudyMateApp> {
         SnackBar(content: Text(body.isEmpty ? title : '$title — $body')),
       ),
     );
-    _controller = StudyController(api: _api, push: _push);
+    _sync = widget.firebaseConfigured
+        ? SyncService(
+            api: _api,
+            userIdProvider: () => FirebaseAuth.instance.currentUser?.uid,
+          )
+        : null;
+    _controller = StudyController(api: _api, push: _push, sync: _sync);
+    // Temps passé dans l'app (statistique locale du tableau de bord).
+    if (widget.firebaseConfigured) {
+      UsageTracker.instance.start(() => FirebaseAuth.instance.currentUser?.uid);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    const seedColor = Color(0xFF6750A4);
     return MaterialApp(
       title: 'StudyMate',
       scaffoldMessengerKey: _messengerKey,
       debugShowCheckedModeBanner: false,
       themeMode: _themeMode,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          surface: const Color(0xFFF8F7FC),
-        ),
-        scaffoldBackgroundColor: const Color(0xFFF8F7FC),
-        useMaterial3: true,
-        cardTheme: CardThemeData(
-          elevation: 0,
-          color: const Color(0xFFFFFFFF),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Color(0xFFECE8F2)),
-          ),
-        ),
-      ),
-      darkTheme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: seedColor,
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        cardTheme: CardThemeData(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-      ),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
       home: _AppGate(
         auth: _auth,
         api: _api,
@@ -219,6 +205,16 @@ class _AppGateState extends State<_AppGate> {
     try {
       await EventsLocalDb.instance.clearAll();
     } catch (_) {}
+    // La file hors ligne appartient à ce compte : elle ne doit jamais être
+    // rejouée sous un autre compte sur ce téléphone.
+    final uid = auth.currentUser?.uid;
+    final sync = widget.controller.sync;
+    if (uid != null && sync != null) {
+      try {
+        await sync.outbox.clearUser(uid);
+        await sync.refreshCount();
+      } catch (_) {}
+    }
     await widget.controller.push?.disable();
     await StudyMateAuthService.signOut(auth);
   }

@@ -174,7 +174,6 @@ class _RegisterPageState extends State<RegisterPage> {
           decoration: InputDecoration(
             labelText: label,
             prefixIcon: Icon(icon),
-            border: const OutlineInputBorder(),
           ),
         ),
       );
@@ -274,7 +273,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     decoration: const InputDecoration(
                       labelText: 'Niveau académique',
                       prefixIcon: Icon(Icons.school_outlined),
-                      border: OutlineInputBorder(),
                     ),
                   ),
                 ),

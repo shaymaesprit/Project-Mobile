@@ -144,3 +144,25 @@ class FlashcardReviewResponse(ApiSchema):
     correct_answers: int
     incorrect_answers: int
     accuracy_rate: float | None
+
+
+class FlashcardGenerateRequest(ApiSchema):
+    """Source de la génération : une note, un PDF de cours ou un texte collé."""
+
+    note_id: UUID | None = None
+    document_id: UUID | None = None
+    text: str | None = Field(default=None, max_length=20_000)
+    max_cards: int = Field(default=8, ge=3, le=15)
+
+    @model_validator(mode="after")
+    def _one_source(self) -> Self:
+        has_text = bool(self.text and self.text.strip())
+        sources = [self.note_id is not None, self.document_id is not None, has_text]
+        if sum(sources) != 1:
+            raise ValueError("Provide exactly one of note_id, document_id or text.")
+        return self
+
+
+class FlashcardGenerateResponse(ApiSchema):
+    source: Literal["ai", "rules"]
+    cards: list[FlashcardResponse]

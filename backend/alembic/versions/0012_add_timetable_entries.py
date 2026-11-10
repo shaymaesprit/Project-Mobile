@@ -4,6 +4,7 @@ from typing import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision: str = "0012_add_timetable_entries"
 down_revision: str | None = "0011_add_timetable_share"
@@ -27,7 +28,7 @@ def upgrade() -> None:
         sa.Column("salle", sa.String(100), nullable=True),
         sa.Column(
             "type_seance",
-            sa.Enum("COURS", "TD", "TP", name="seancetype"),
+            postgresql.ENUM("COURS", "TD", "TP", name="seancetype", create_type=False),
             nullable=False,
             server_default="COURS",
         ),

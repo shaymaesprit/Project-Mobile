@@ -48,12 +48,12 @@ DateTime startOfWeek(DateTime value) {
 
 /// Couleur associée à une catégorie d'événement.
 Color categoryColor(String category) => switch (category) {
-      'exam' => const Color(0xFFD64545),
-      'deadline' => const Color(0xFFE08A1E),
-      'class' => const Color(0xFF3D7BD9),
-      'study' => const Color(0xFF7A5BD6),
-      'personal' => const Color(0xFF2E9E6B),
-      _ => const Color(0xFF7C8794),
+      'exam' => const Color(0xFFF43F5E),
+      'deadline' => const Color(0xFFFFB020),
+      'class' => const Color(0xFF38BDF8),
+      'study' => const Color(0xFF8B5CF6),
+      'personal' => const Color(0xFF14C9A5),
+      _ => const Color(0xFF8A8FB0),
     };
 
 IconData categoryIcon(String category) => switch (category) {

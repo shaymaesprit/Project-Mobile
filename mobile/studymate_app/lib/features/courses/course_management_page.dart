@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/study_models.dart';
 import '../../state/study_controller.dart';
+import '../../core/theme/app_theme.dart';
+import 'course_documents.dart';
+import 'timetable_page.dart';
 
 const _weekdays = [
   'Lundi',
@@ -59,6 +62,38 @@ class _CourseManagementPageState extends State<CourseManagementPage> {
             ),
           ),
           const SizedBox(height: 18),
+          Card(
+            child: ListTile(
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              leading: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: AppGradients.brand,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.calendar_view_week_rounded,
+                  color: Colors.white,
+                ),
+              ),
+              title: const Text(
+                'Emploi du temps de la semaine',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+              subtitle: const Text(
+                'Jours fériés, conflits, créneaux libres et partage QR.',
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push<void>(
+                MaterialPageRoute(
+                  builder: (_) => TimetablePage(api: widget.controller.api),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           SegmentedButton<bool>(
             segments: const [
               ButtonSegment(
@@ -278,6 +313,8 @@ class CourseDetailPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
+          CourseDocumentsSection(controller: controller, course: course),
+          const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: () async {
               final saved = await Navigator.of(context).push<bool>(
@@ -400,7 +437,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: const InputDecoration(
                   labelText: 'Nom du cours *',
-                  border: OutlineInputBorder(),
                 ),
                 validator: (value) => value == null || value.trim().isEmpty
                     ? 'Le nom du cours est requis.'
@@ -411,7 +447,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 controller: _codeController,
                 decoration: const InputDecoration(
                   labelText: 'Code du cours',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 14),
@@ -420,7 +455,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 textCapitalization: TextCapitalization.words,
                 decoration: const InputDecoration(
                   labelText: 'Professeur',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 14),
@@ -429,7 +463,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 textCapitalization: TextCapitalization.characters,
                 decoration: const InputDecoration(
                   labelText: 'Salle',
-                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 20),
@@ -444,7 +477,6 @@ class _CourseFormPageState extends State<CourseFormPage> {
                 initialValue: _weekday,
                 decoration: const InputDecoration(
                   labelText: 'Jour (facultatif)',
-                  border: OutlineInputBorder(),
                 ),
                 items: [
                   const DropdownMenuItem<int>(
@@ -589,7 +621,6 @@ class _TimePickerField extends StatelessWidget {
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
-            border: const OutlineInputBorder(),
             suffixIcon: const Icon(Icons.schedule),
           ),
           child: Text(value?.format(context) ?? 'Choisir'),

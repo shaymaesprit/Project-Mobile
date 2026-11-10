@@ -5,8 +5,8 @@ from typing import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0010_extend_course_schedule_fields"
-down_revision: str | None = "0009_ai_recommendations"
+revision: str = "0010b_course_schedule_fields"
+down_revision: str | None = "0010_event_reminders"
 branch_labels: Sequence[str] | None = None
 depends_on: Sequence[str] | None = None
 

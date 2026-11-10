@@ -27,6 +27,11 @@ from app.services.calendar_service import CalendarService
 from app.services.event_ai_service import EventAIService
 from app.services.event_service import EventService
 from app.services.places_service import PlacesService
+from app.services.flashcard_generator import FlashcardGeneratorService
+from app.services.holiday_service import HolidayService
+from app.services.knowledge_service import KnowledgeService
+from app.services.planning_service import PlanningService
+from app.services.timetable_share_service import TimetableShareService
 from app.services.flashcard_service import FlashcardService
 from app.services.notification_service import NotificationService
 from app.services.owned_resource_service import OwnedResourceService
@@ -95,6 +100,15 @@ def get_flashcard_service(
 ) -> FlashcardService:
     db.info["firebase_uid"] = user.firebase_uid
     return FlashcardService(FlashcardRepository(db))
+
+
+def get_flashcard_generator(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    provider: LLMProvider | None = Depends(get_llm_provider),
+) -> FlashcardGeneratorService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return FlashcardGeneratorService(db, FlashcardRepository(db), provider)
 
 
 def get_evaluation_service(
@@ -185,3 +199,35 @@ def get_notification_service(
 ) -> NotificationService:
     db.info["firebase_uid"] = user.firebase_uid
     return NotificationService(NotificationRepository(db))
+
+
+def get_holiday_service() -> HolidayService:
+    return HolidayService(get_settings().holidays_country)
+
+
+def get_planning_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+    holidays: HolidayService = Depends(get_holiday_service),
+) -> PlanningService:
+    db.info["firebase_uid"] = user.firebase_uid
+    return PlanningService(db, holidays)
+
+
+def get_timetable_share_service(db: Session = Depends(get_db)) -> TimetableShareService:
+    return TimetableShareService(db)
+
+
+def get_knowledge_service() -> KnowledgeService:
+    return KnowledgeService()
+
+
+def get_document_service(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> "DocumentService":
+    from app.services.document_service import DocumentService
+
+    db.info["firebase_uid"] = user.firebase_uid
+    settings = get_settings()
+    return DocumentService(db, settings.documents_dir, settings.document_max_mb * 1024 * 1024)

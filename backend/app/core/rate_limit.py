@@ -58,7 +58,9 @@ class RateLimitMiddleware:
             return
         request = Request(scope)
         client = request.client.host if request.client else "unknown"
-        is_ai = scope["path"].startswith("/api/v1/ai/")
+        is_ai = scope["path"].startswith("/api/v1/ai/") or (
+            scope["method"] == "POST" and scope["path"].endswith("/generate")
+        )
         retry_after = None
         if is_ai:
             retry_after = self.limiter.check(client, "ai", self.limiter.ai_limit)

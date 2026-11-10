@@ -1,511 +1,172 @@
-# StudyMate - Application Complète de Gestion d'Études
+# StudyMate 📚
 
-Une application web et mobile complète pour les étudiants, avec backend FastAPI et frontend Flutter.
+Application mobile de vie étudiante : cours et emploi du temps, tâches et notes, calendrier et notifications, flashcards et quiz générés par l'IA, PDF de cours, tableau de bord de progression — avec un **mode hors ligne complet** (SQLite) et une synchronisation automatique.
 
-## 📋 Vue d'ensemble du Projet
-
-StudyMate est une plateforme tout-en-un pour :
-- ✅ Gérer vos cours, tâches et notes
-- ✅ Suivre votre progression d'étude
-- ✅ Recevez des recommandations IA personnalisées
-- ✅ Synchroniser les données en temps réel
-- ✅ Interface moderne avec deux designs au choix
-
-```
-┌─────────────────────────────────────────────┐
-│                StudyMate                    │
-├─────────────────────────────────────────────┤
-│  ┌──────────────┐  ┌──────────────────────┐ │
-│  │   Backend    │  │   Application Mobile │ │
-│  │  (FastAPI)   │  │     (Flutter)        │ │
-│  │  PostgreSQL  │  │  - Style Moderne     │ │
-│  │  - API REST  │  │  - Style Créatif     │ │
-│  │  - IA (Groq) │  │  - Animations        │ │
-│  │  - Firebase  │  │  - Dark Mode         │ │
-│  └──────────────┘  └──────────────────────┘ │
-└─────────────────────────────────────────────┘
-```
+| | |
+|---|---|
+| **Mobile** | Flutter 3 (Material 3, thème clair/sombre), `sqflite`, `dio`, Firebase Auth/Messaging |
+| **Backend** | FastAPI + SQLAlchemy + Alembic, PostgreSQL 16 (pgvector) avec sécurité par ligne |
+| **IA** | Groq (modèle `openai/gpt-oss-120b`, API compatible OpenAI), avec repli par règles |
+| **Tests** | 140 tests backend (pytest) · 32 tests Flutter |
 
 ---
 
-## 📁 Structure du Projet
+## 🧩 Les 4 modules
 
-```
-studymate/
-├── backend/
-│   ├── app/
-│   │   ├── main.py
-│   │   ├── core/              # Configuration
-│   │   │   ├── config.py
-│   │   │   ├── exceptions.py
-│   │   │   ├── audit.py
-│   │   │   └── logging.py
-│   │   ├── api/
-│   │   │   ├── router.py
-│   │   │   └── routes/
-│   │   ├── database/          # Base de données
-│   │   │   ├── connection.py
-│   │   │   └── session.py
-│   │   ├── models/            # ORM Models
-│   │   │   ├── user.py
-│   │   │   ├── course.py
-│   │   │   └── task.py
-│   │   ├── schemas/           # Pydantic Schemas
-│   │   │   ├── user.py
-│   │   │   ├── course.py
-│   │   │   └── ai.py
-│   │   ├── services/          # Business Logic
-│   │   │   ├── user_service.py
-│   │   │   ├── ai_service.py
-│   │   │   ├── course_service.py
-│   │   │   └── task_service.py
-│   │   ├── repositories/      # Data Access
-│   │   │   ├── user_repository.py
-│   │   │   ├── course_repository.py
-│   │   │   └── task_repository.py
-│   │   └── ml/                # Machine Learning
-│   │       ├── m1_learning_profile.py
-│   │       ├── m2_behavior.py
-│   │       ├── m3_performance.py
-│   │       └── m4_recommendations.py
-│   ├── alembic/               # Migrations
-│   ├── tests/
-│   ├── pyproject.toml
-│   ├── .env
-│   └── requirements.txt
-│
-├── mobile/studymate_app/
-│   ├── lib/
-│   │   ├── main.dart
-│   │   ├── features/
-│   │   │   ├── home/
-│   │   │   │   ├── modern_dashboard.dart
-│   │   │   │   ├── creative_dashboard.dart
-│   │   │   │   ├── dashboard_selector.dart
-│   │   │   │   └── widgets/
-│   │   │   ├── auth/
-│   │   │   ├── courses/
-│   │   │   ├── profile/
-│   │   │   └── study/
-│   │   ├── data/
-│   │   │   ├── models/
-│   │   │   └── services/
-│   │   └── state/
-│   ├── pubspec.yaml
-│   ├── dart_defines.local.json
-│   └── README.md              # Documentation Flutter
-│
-├── firebase.json
-├── firestore.rules
-├── docker-compose.yml
-└── README.md                  # Ce fichier
-```
+### 1. Authentification et profil
+- Inscription / connexion e-mail et **Google**, vérification d'e-mail, mot de passe oublié, changement de mot de passe (Firebase Auth).
+- Le backend vérifie le jeton Firebase à chaque requête ; PostgreSQL isole les données de chaque étudiant (**row-level security** sur `app.firebase_uid`).
+- Profil : photo (galerie ou appareil photo, envoyée sur Cloudinary et affichée en haut de l'accueil), niveau, filière, objectifs, style d'apprentissage, objectif quotidien.
+
+### 2. Cours et emploi du temps
+- CRUD des cours avec **détection des chevauchements** d'horaires (refus 409).
+- Emploi du temps de la semaine, **agenda hebdomadaire** (cours + événements + jours fériés).
+- **Partage de l'emploi du temps** par lien sécurisé (jeton, expiration) et **QR code**.
+- **PDF de cours** : envoi (20 Mo max, vérification du format, doublons refusés), lecture dans l'app avec zoom, **cache local pour la lecture hors ligne**, extraction du texte page par page pour l'IA.
+
+### 3. Tâches, notes et révisions
+- Tâches avec priorité et échéance ; **planificateur intelligent** : calcule les créneaux libres entre les cours/événements, classe les tâches (priorité × urgence), estime leur durée et propose un planning.
+- **Découpage d'une tâche en étapes** par l'IA.
+- Notes cliquables : lecture complète, modification sur place, copie, **complément Wikipédia**.
+- **Flashcards générées par l'IA** à partir d'une note, d'un texte ou d'un PDF de cours ; **répétition espacée** (facteur de facilité, prochaine révision).
+- **Quiz** (QCM de 10 questions tirées des flashcards) : chaque réponse met à jour la répétition espacée, le score est enregistré comme évaluation.
+- **Tableau de bord** : temps passé dans l'app (7 jours, série de jours), scores des quiz, maîtrise des flashcards, parcours par cours, moyenne des notes.
+
+### 4. Calendrier et notifications
+- Événements (révision, examen, rendu…) avec **détection de conflits**, rappels, lieu sur carte (OpenStreetMap) et **lieux à proximité** (Geoapify).
+- Centre de notifications, **notifications push** (Firebase Cloud Messaging).
 
 ---
 
-## 🚀 Installation Rapide
+## 💾 SQLite (sqflite) — mode hors ligne
 
-### 1️⃣ Cloner le Projet
+| Base / table | Fichier | Rôle |
+|---|---|---|
+| `courses`, `tasks`, `notes`, `flashcard_decks`, `flashcards`, `evaluations` | [`local_database.dart`](mobile/studymate_app/lib/data/local/local_database.dart) | Cache local : l'app s'ouvre et s'utilise sans réseau |
+| `events`, `calendar_items`, `notifications` | [`events_local_db.dart`](mobile/studymate_app/lib/data/local/events_local_db.dart) | Calendrier et notifications hors ligne |
+| `outbox` | [`offline_outbox.dart`](mobile/studymate_app/lib/data/sync/offline_outbox.dart) | **File d'attente** des créations / modifications / suppressions faites hors ligne |
+| `usage`, `quiz_results` | [`usage_tracker.dart`](mobile/studymate_app/lib/data/local/usage_tracker.dart) | Temps passé dans l'app et historique des quiz |
 
+**Synchronisation** ([`sync_service.dart`](mobile/studymate_app/lib/data/sync/sync_service.dart)) :
+- ordre d'enregistrement respecté (FIFO) ;
+- fusion des opérations : *créer puis modifier* = une seule création, *créer puis supprimer* = rien à envoyer ;
+- les identifiants `local-…` sont remplacés par ceux du serveur, y compris dans les éléments qui les référencent ;
+- déclenchée au retour du réseau, au retour de l'app au premier plan, et en réessai automatique (15 s → 5 min) ;
+- erreur réseau / 5xx → on garde l'opération ; refus du serveur (409, 422…) → annulée sur le téléphone et signalée ; 404 sur modification/suppression → ignorée.
+
+> Démo : passer en mode avion, ajouter/cocher une tâche, supprimer une note → badge ☁️ dans la barre du haut ; réactiver le réseau → tout part automatiquement.
+
+---
+
+## 🌐 API externes consommées
+
+| Service | Utilisation |
+|---|---|
+| **Groq** (LLM) | Flashcards, analyse d'apprentissage, chat, découpage de tâches |
+| **Firebase** | Authentification (e-mail, Google), notifications push |
+| **Cloudinary** | Hébergement des photos de profil |
+| **Geoapify** | Recherche de lieux à proximité d'un événement |
+| **OpenStreetMap** | Tuiles de carte (`flutter_map`) |
+| **Nager.Date** | Jours fériés (Tunisie par défaut, `HOLIDAYS_COUNTRY`) |
+| **QR Server** | QR code du lien de partage de l'emploi du temps |
+| **Wikipédia (REST)** | Résumé encyclopédique pour compléter une note |
+
+---
+
+## 🚀 Installation
+
+### Prérequis
+Python 3.11+, Flutter 3.x, Docker (pour PostgreSQL), un projet Firebase.
+
+### 1. Base de données
 ```bash
-git clone https://github.com/yourusername/studymate.git
-cd studymate
+docker compose up -d          # PostgreSQL 16 + pgvector sur le port 5433
 ```
 
-### 2️⃣ Configuration Backend
-
-#### Via Docker (Recommandé)
-
-```bash
-docker-compose up -d
-```
-
-Cela va lancer :
-- PostgreSQL sur le port 5433
-- Redis (si configuré)
-
-#### Manuel
-
+### 2. Backend
 ```bash
 cd backend
-
-# Créer l'environnement Python
 python -m venv .venv
-
-# Activer
-# Windows
-.venv\Scripts\Activate.ps1
-# macOS/Linux
-source .venv/bin/activate
-
-# Installer les dépendances
-pip install -r requirements.txt
-
-# Configuration
-cp .env.example .env
-# Éditer .env avec vos valeurs
-
-# Migrations
+.venv\Scripts\activate         # Windows  (macOS/Linux : source .venv/bin/activate)
+pip install -e ".[dev]"
+cp .env.example .env           # puis remplir les valeurs (voir ci-dessous)
 alembic upgrade head
-
-# Lancer
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
+- Santé : `http://localhost:8000/api/v1/health` → `{"status":"ok","database":"connected"}`
+- Documentation interactive : `http://localhost:8000/docs`
 
-### 3️⃣ Configuration Mobile
+Variables principales du `.env` : `DATABASE_URL`, `FIREBASE_PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS` (compte de service Firebase), `LLM_API_KEY` / `LLM_MODEL` / `LLM_BASE_URL`, `PLACES_PROVIDER=geoapify` + `GEOAPIFY_API_KEY`, `HOLIDAYS_COUNTRY`.
 
+### 3. Application mobile
 ```bash
 cd mobile/studymate_app
-
-# Installer les dépendances
 flutter pub get
-
-# Éditer dart_defines.local.json
-# Assurez-vous que l'URL API pointe vers votre backend
-
-# Lancer l'app
+cp dart_defines.example.json dart_defines.local.json   # puis remplir les valeurs
 flutter run --dart-define-from-file=dart_defines.local.json
 ```
+- Sur un **téléphone réel**, `STUDYMATE_API_URL` doit contenir l'**adresse IP du PC** sur le même Wi-Fi (ex. `http://192.168.1.20:8000/api/v1`) ; sur l'émulateur Android : `http://10.0.2.2:8000/api/v1`.
+- Raccourcis : `run_phone.bat` (Windows) ou la configuration de lancement VS Code « StudyMate (phone) ».
+- Connexion Google : ajouter les empreintes SHA-1 et SHA-256 de la clé de debug dans la console Firebase.
+
+> 🔒 `.env`, `dart_defines.local.json`, `google-services.json` et les comptes de service sont dans `.gitignore` : **ne jamais les committer**.
 
 ---
 
-## 🎯 Démarrer l'Application
-
-### Backend
-
-```bash
-# Windows
-cd backend
-.venv\Scripts\Activate.ps1
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# macOS/Linux
-cd backend
-source .venv/bin/activate
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-```
-
-Le backend sera disponible à : `http://localhost:8000`
-API Docs : `http://localhost:8000/docs`
-
-### Application Mobile
-
-```bash
-cd mobile/studymate_app
-flutter run --dart-define-from-file=dart_defines.local.json
-```
-
-### Vérifier la Connexion
-
-```bash
-# Vérifier que l'API fonctionne
-curl http://localhost:8000/api/v1/health
-
-# Réponse attendue
-{"status":"ok","database":"connected"}
-```
-
----
-
-## 🎨 Interface Utilisateur
-
-### Style Moderne 💼
-
-**Caractéristiques :**
-- Design professionnel et élégant
-- Anneau de progression circulaire
-- Gradients doux
-- Animations subtiles
-- Parfait pour un look corporate
-
-### Style Créatif 🎨
-
-**Caractéristiques :**
-- Design dynamique et coloré
-- Hero header animé
-- Cartes d'action flottantes
-- Gamification avec streak
-- Animations énergiques
-- Parfait pour les étudiants
-
-### Basculer les Styles
-
-Cliquez sur le bouton flottant en bas à droite du dashboard pour passer d'un style à l'autre !
-
----
-
-## 🔌 Architecture API
-
-### Endpoints Principaux
+## 🏗️ Architecture
 
 ```
-GET    /api/v1/health                    # Santé de l'API
-GET    /api/v1/users/me                  # Profil utilisateur
-PUT    /api/v1/users/me                  # Mettre à jour le profil
-GET    /api/v1/courses                   # Liste des cours
-POST   /api/v1/courses                   # Créer un cours
-GET    /api/v1/tasks                     # Liste des tâches
-POST   /api/v1/tasks                     # Créer une tâche
-GET    /api/v1/notes                     # Liste des notes
-POST   /api/v1/notes                     # Créer une note
-GET    /api/v1/ai/recommendations        # Recommandations IA
-POST   /api/v1/ai/chat                   # Chat avec l'IA
+mobile/studymate_app/lib/
+├── core/            # thème (palette, dégradés), configuration
+├── data/
+│   ├── local/       # SQLite : cache, calendrier, temps d'utilisation
+│   ├── sync/        # file d'attente hors ligne + synchronisation
+│   ├── models/      # modèles (fromJson / toJson)
+│   └── services/    # client HTTP de l'API (dio)
+├── state/           # StudyController (ChangeNotifier)
+└── features/        # auth, home, courses, events, study, insights, profile…
+
+backend/app/
+├── api/routes/      # endpoints FastAPI
+├── services/        # logique métier (planning, conflits, PDF, IA, partage…)
+├── repositories/    # accès aux données
+├── models/          # modèles SQLAlchemy
+├── schemas/         # validation Pydantic
+└── ml/              # profils d'apprentissage et recommandations
+backend/alembic/     # migrations (0001 → 0014)
 ```
 
-### Authentification
-
-- **Type :** Firebase JWT
-- **Header :** `Authorization: Bearer <token>`
-
----
-
-## 🤖 Assistant IA
-
-L'assistant IA utilise le modèle `openai/gpt-oss-120b` via Groq API.
-
-### Fonctionnalités
-
-- ✅ Recommandations d'étude personnalisées
-- ✅ Chat conversationnel
-- ✅ Analyse de profil d'apprentissage
-- ✅ Suggestions de planification
-- ✅ Mode hors ligne avec fallback règles
-
-### Configuration
-
-```env
-LLM_PROVIDER=openai
-LLM_MODEL=openai/gpt-oss-120b
-LLM_BASE_URL=https://api.groq.com/openai/v1
-LLM_API_KEY=your_groq_key
-LLM_TIMEOUT_SECONDS=20
-```
-
----
-
-## 📊 Base de Données
-
-### Tables Principales
-
-```
-users              # Utilisateurs Firebase
-profiles           # Profils étudiants
-courses            # Cours
-tasks              # Tâches
-notes              # Notes
-flashcard_decks    # Decks de flashcards
-study_sessions     # Sessions d'étude
-ai_recommendations # Recommandations IA
-ai_insights        # Insights générés par IA
-```
-
-### Migrations
-
-```bash
-# Créer une nouvelle migration
-alembic revision --autogenerate -m "Description"
-
-# Appliquer les migrations
-alembic upgrade head
-
-# Revenir en arrière
-alembic downgrade -1
-```
-
----
-
-## 🔐 Configuration Firebase
-
-Le projet utilise Firebase pour :
-- Authentification
-- Stockage de fichiers
-- Notifications push
-
-### Configuration Requise
-
-```json
-{
-  "STUDYMATE_FIREBASE_API_KEY": "your_api_key",
-  "STUDYMATE_FIREBASE_APP_ID": "your_app_id",
-  "STUDYMATE_FIREBASE_PROJECT_ID": "studymate-8930d",
-  "STUDYMATE_FIREBASE_SENDER_ID": "your_sender_id",
-  "STUDYMATE_FIREBASE_STORAGE_BUCKET": "your_bucket"
-}
-```
+### Endpoints principaux (`/api/v1`)
+| Domaine | Routes |
+|---|---|
+| Compte | `GET/PUT /users/me`, `GET/PUT /profile` |
+| Cours | `/courses`, `/timetable`, `/schedule/week-agenda`, `/timetable/shares`, `/timetable/shared/{token}` |
+| PDF | `GET/POST /courses/{id}/documents`, `GET /documents/{id}/file`, `PATCH/DELETE /documents/{id}` |
+| Tâches et notes | `/tasks`, `GET /tasks/plan`, `/notes`, `GET /knowledge/wikipedia` |
+| Révisions | `/flashcard-decks`, `POST /flashcard-decks/{id}/generate`, `/flashcards`, `/evaluations` |
+| Calendrier | `/events`, `/calendar`, `/notifications`, `/places` |
+| IA | `/ai/consent`, `/ai/chat`, `/ai/tasks/{id}/breakdown`, `/ml/…` |
 
 ---
 
 ## 🧪 Tests
-
-### Backend
-
 ```bash
-cd backend
-pytest tests/
-pytest tests/ -v  # Verbose
-pytest tests/test_auth.py  # Test spécifique
+cd backend && pytest -q                    # 140 tests
+cd mobile/studymate_app && flutter test    # 32 tests
 ```
-
-### Mobile
-
-```bash
-cd mobile/studymate_app
-flutter test
-flutter test test/specific_test.dart
-```
+Les tests backend tournent sur SQLite en mémoire (aucun service externe appelé) ; les tests Flutter couvrent notamment la file d'attente hors ligne, le tableau de bord, les PDF de cours et les notes.
 
 ---
 
-## 📱 Build et Déploiement
-
-### Build APK (Android)
-
-```bash
-cd mobile/studymate_app
-flutter build apk --release
-# APK généré : build/app/outputs/apk/release/app-release.apk
-```
-
-### Build IPA (iOS)
-
-```bash
-cd mobile/studymate_app
-flutter build ios --release
-# Suivez les instructions pour uploader sur App Store
-```
-
-### Build Web
-
-```bash
-cd mobile/studymate_app
-flutter build web --release
-# Distribution : build/web/
-```
+## 🆘 Problèmes fréquents
+| Symptôme | Solution |
+|---|---|
+| « Firebase n'est pas configuré » au lancement | Lancer avec `--dart-define-from-file=dart_defines.local.json` |
+| L'app ne joint pas l'API sur le téléphone | PC et téléphone sur le même Wi-Fi, IP du PC dans `STUDYMATE_API_URL`, pare-feu Windows ouvert sur le port 8000 |
+| Connexion Google refusée | Empreintes SHA-1/SHA-256 manquantes dans Firebase |
+| Erreur 500 après une mise à jour | `alembic upgrade head` dans `backend/` |
+| Flashcards IA indisponibles | Vérifier `LLM_API_KEY` ; sans clé, l'app utilise la génération par règles |
 
 ---
 
-## 📚 Documentation Supplémentaire
-
-### Application Mobile
-Voir `mobile/studymate_app/README.md` pour :
-- Installation détaillée
-- Guide des widgets
-- Personnalisation UI
-- Résolution de problèmes
-
-### Backend
-Voir la documentation API :
-- `http://localhost:8000/docs` (Swagger UI)
-- `http://localhost:8000/redoc` (ReDoc)
-
----
-
-## 🆘 Résolution de Problèmes
-
-### Les animations ne fonctionnent pas
-
-```bash
-flutter clean
-flutter pub get
-flutter run --dart-define-from-file=dart_defines.local.json
-```
-
-### Erreur de base de données
-
-```bash
-# Vérifier que PostgreSQL est en cours d'exécution
-docker-compose ps
-
-# Vérifier la connexion
-psql -U studymate -d studymate
-```
-
-### Erreur Firebase
-
-- Vérifiez `dart_defines.local.json`
-- Vérifiez la clé API Firebase
-- Vérifiez la configuration Firebase Console
-
-### Erreur Backend
-
-```bash
-# Vérifier que l'API fonctionne
-curl http://localhost:8000/api/v1/health
-
-# Vérifier les logs
-# (dans le terminal où vous avez lancé uvicorn)
-```
-
----
-
-## 🤝 Contribution
-
-Les contributions sont les bienvenues !
-
-1. Fork le projet
-2. Créer une branche (`git checkout -b feature/AmazingFeature`)
-3. Commit (`git commit -m 'Add AmazingFeature'`)
-4. Push (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
-
----
-
-## 📄 Licence
-
-Ce projet est sous licence MIT. Voir `LICENSE` pour plus de détails.
-
----
-
-## 🎉 Commandes Essentielles
-
-```bash
-# Installation Complète
-git clone https://github.com/yourusername/studymate.git
-cd studymate
-
-# Backend
-cd backend
-python -m venv .venv
-.venv\Scripts\Activate.ps1  # ou source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-
-# Mobile (dans un autre terminal)
-cd mobile/studymate_app
-flutter pub get
-flutter run --dart-define-from-file=dart_defines.local.json
-
-# Vérifier la santé
-curl http://localhost:8000/api/v1/health
-```
-
----
-
-## 📞 Support
-
-Pour obtenir de l'aide :
-1. Consultez la documentation des composants
-2. Vérifiez les logs d'erreur
-3. Ouvrez une issue sur GitHub
-
----
-
-## 🌟 Fonctionnalités Principales
-
-| Fonctionnalité | Backend | Mobile | Status |
-|---|---|---|---|
-| Authentification Firebase | ✅ | ✅ | ✅ Production |
-| Gestion des Cours | ✅ | ✅ | ✅ Production |
-| Gestion des Tâches | ✅ | ✅ | ✅ Production |
-| Prise de Notes | ✅ | ✅ | ✅ Production |
-| Assistant IA | ✅ | ✅ | ✅ Production |
-| Flashcards | ✅ | ⏳ | 🔄 En cours |
-| Gamification | ⏳ | ✅ | 🔄 En cours |
-| Statistiques | ✅ | ⏳ | 🔄 En cours |
-
----
-
-**Créé avec ❤️ pour les étudiants qui veulent réussir** 📚✨
-
-Dernière mise à jour : 2026-11-07
-Version : 2.0
+Dernière mise à jour : 11 novembre 2026

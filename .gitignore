@@ -43,3 +43,6 @@ coverage/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# PDF de cours envoyés par les étudiants (stockage local du serveur)
+backend/storage/

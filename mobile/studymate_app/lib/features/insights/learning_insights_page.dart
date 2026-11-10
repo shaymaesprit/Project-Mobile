@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/ai_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
+import 'ai_consent.dart';
 import 'learning_profile_onboarding_page.dart';
 
 const _weekdays = [
@@ -205,7 +206,7 @@ class _LearningInsightsPageState extends State<LearningInsightsPage> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _ChatSheet(api: _api),
+      builder: (_) => AiChatSheet(api: _api),
     );
   }
 
@@ -668,16 +669,41 @@ class _LearningInsightsPageState extends State<LearningInsightsPage> {
       );
 }
 
-class _ChatSheet extends StatefulWidget {
-  const _ChatSheet({required this.api});
+/// Ouvre l'assistant IA (chat) depuis n'importe quel écran, après avoir
+/// vérifié le consentement de l'étudiant.
+Future<void> openAiChat(BuildContext context, StudyMateApi api) async {
+  try {
+    final allowed = await ensureAiConsent(
+      context,
+      api,
+      purpose: 'Pour te répondre, l’assistant reçoit ton message et un '
+          'résumé anonyme de tes statistiques d’étude.',
+    );
+    if (!allowed || !context.mounted) return;
+  } on StudyMateApiException catch (error) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.message)));
+    }
+    return;
+  }
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => AiChatSheet(api: api),
+  );
+}
+
+class AiChatSheet extends StatefulWidget {
+  const AiChatSheet({super.key, required this.api});
 
   final StudyMateApi api;
 
   @override
-  State<_ChatSheet> createState() => _ChatSheetState();
+  State<AiChatSheet> createState() => _AiChatSheetState();
 }
 
-class _ChatSheetState extends State<_ChatSheet> {
+class _AiChatSheetState extends State<AiChatSheet> {
   final _input = TextEditingController();
   final _messages = <({bool mine, String text})>[];
   bool _sending = false;

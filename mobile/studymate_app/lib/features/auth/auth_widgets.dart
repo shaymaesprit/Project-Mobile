@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_theme.dart';
+
 /// Common layout for the unauthenticated screens.
 class AuthScaffold extends StatelessWidget {
   const AuthScaffold({
@@ -18,54 +20,149 @@ class AuthScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final topInset = MediaQuery.paddingOf(context).top;
     return Scaffold(
-      appBar: showBack ? AppBar() : null,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 440),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CircleAvatar(
-                    radius: 30,
-                    backgroundColor: theme.colorScheme.secondaryContainer,
-                    child: Icon(
-                      Icons.school_rounded,
-                      size: 32,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle!,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant,
+      extendBodyBehindAppBar: true,
+      appBar: showBack
+          ? AppBar(
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+            )
+          : null,
+      body: Stack(
+        children: [
+          // En-tête dégradé avec halos lumineux.
+          Container(
+            height: 300 + topInset,
+            decoration: BoxDecoration(
+              gradient: AppGradients.forHour(DateTime.now().hour),
+              borderRadius:
+                  const BorderRadius.vertical(bottom: Radius.circular(40)),
+            ),
+            child: const Stack(
+              children: [
+                _Glow(top: -60, right: -40, size: 220),
+                _Glow(top: 140, left: -70, size: 180),
+              ],
+            ),
+          ),
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 440),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Center(child: StudyMateLogo(size: 72)),
+                      const SizedBox(height: 18),
+                      Text(
+                        title,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                        ),
                       ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  ...children,
-                ],
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          subtitle!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.85),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 26),
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppPalette.indigo.withValues(alpha: 0.16),
+                              blurRadius: 40,
+                              offset: const Offset(0, 18),
+                            ),
+                          ],
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: children,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
+}
+
+/// Logo StudyMate : chapeau sur une tuile vitrée avec halo.
+class StudyMateLogo extends StatelessWidget {
+  const StudyMateLogo({super.key, this.size = 56});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(size * 0.32),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.white.withValues(alpha: 0.25),
+              blurRadius: 30,
+            ),
+          ],
+        ),
+        child: Icon(
+          Icons.school_rounded,
+          color: Colors.white,
+          size: size * 0.52,
+        ),
+      );
+}
+
+class _Glow extends StatelessWidget {
+  const _Glow({this.top, this.left, this.right, required this.size});
+
+  final double? top;
+  final double? left;
+  final double? right;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Positioned(
+        top: top,
+        left: left,
+        right: right,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.28),
+                Colors.white.withValues(alpha: 0),
+              ],
+            ),
+          ),
+        ),
+      );
 }
 
 /// Password input with a visibility toggle.
@@ -121,7 +218,6 @@ class _PasswordFieldState extends State<PasswordField> {
                   : Icons.visibility_off_outlined,
             ),
           ),
-          border: const OutlineInputBorder(),
         ),
       );
 }

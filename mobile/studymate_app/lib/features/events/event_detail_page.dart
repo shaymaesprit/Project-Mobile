@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../data/models/event_models.dart';
 import '../../data/services/studymate_api.dart';
 import '../../state/study_controller.dart';
+import '../../data/sync/offline_outbox.dart';
 import 'event_form_page.dart';
 import 'event_helpers.dart';
 import 'event_map_preview.dart';
@@ -78,9 +79,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
   Future<void> _setStatus(String status) async {
     final event = _event;
     if (event == null) return;
-    try {
-      final updated = await _api.updateEvent(
-        StudyEvent(
+    final candidate = StudyEvent(
           id: event.id,
           title: event.title,
           eventType: event.eventType,
@@ -93,13 +92,23 @@ class _EventDetailPageState extends State<EventDetailPage> {
           longitude: event.longitude,
           status: status,
           reminderOffsets: event.reminderOffsets,
-        ),
-        force: true,
-      );
+        );
+    try {
+      final updated = isLocalId(candidate.id)
+          ? await widget.events.saveOffline(candidate, isNew: false)
+          : await _api.updateEvent(candidate, force: true);
       _changed = true;
       await widget.events.cacheEvent(updated);
       if (mounted) setState(() => _event = updated);
     } on StudyMateApiException catch (error) {
+      if (error.isNetworkError) {
+        final local = await widget.events.saveOffline(candidate, isNew: false);
+        _changed = true;
+        if (!mounted) return;
+        setState(() => _event = local);
+        _savedOfflineSnack(context);
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
@@ -127,10 +136,21 @@ class _EventDetailPageState extends State<EventDetailPage> {
     );
     if (confirmed != true) return;
     try {
-      await _api.deleteEvent(widget.eventId);
-      await widget.events.forgetEvent(widget.eventId);
+      if (isLocalId(widget.eventId)) {
+        await widget.events.deleteOffline(widget.eventId);
+      } else {
+        await _api.deleteEvent(widget.eventId);
+        await widget.events.forgetEvent(widget.eventId);
+      }
       if (mounted) Navigator.pop(context, true);
     } on StudyMateApiException catch (error) {
+      if (error.isNetworkError) {
+        await widget.events.deleteOffline(widget.eventId);
+        if (!mounted) return;
+        _savedOfflineSnack(context);
+        Navigator.pop(context, true);
+        return;
+      }
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text(error.message)));
@@ -317,4 +337,14 @@ class _EventDetailPageState extends State<EventDetailPage> {
           ],
         ),
       );
+}
+
+void _savedOfflineSnack(BuildContext context) {
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+      content: Text(
+        'Hors ligne : enregistré sur le téléphone, envoyé dès le retour du réseau.',
+      ),
+    ),
+  );
 }

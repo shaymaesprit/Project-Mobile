@@ -7,6 +7,7 @@ import '../insights/learning_insights_page.dart';
 import '../insights/learning_profile_onboarding_page.dart';
 import '../settings/privacy_settings_page.dart';
 import 'edit_profile_page.dart';
+import 'user_avatar.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({
@@ -127,7 +128,12 @@ class _ProfilePageState extends State<ProfilePage> {
           Center(
             child: Column(
               children: [
-                _ProfileAvatar(photoUrl: account.photoUrl, radius: 48),
+                UserAvatar(
+                  photoUrl: account.photoUrl,
+                  name: account.displayName ?? account.email,
+                  radius: 48,
+                  ring: true,
+                ),
                 const SizedBox(height: 12),
                 Text(
                   account.displayName ?? 'Nom non renseigné',
@@ -282,34 +288,4 @@ class _ProfilePageState extends State<ProfilePage> {
         'attendance_rate' => 'Assiduité',
         _ => key,
       };
-}
-
-class _ProfileAvatar extends StatelessWidget {
-  const _ProfileAvatar({required this.photoUrl, required this.radius});
-
-  final String? photoUrl;
-  final double radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final url = photoUrl;
-    if (url == null || url.isEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        child: const Icon(Icons.person_outline, size: 44),
-      );
-    }
-    return ClipOval(
-      child: Image.network(
-        url,
-        width: radius * 2,
-        height: radius * 2,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => CircleAvatar(
-          radius: radius,
-          child: const Icon(Icons.person_outline, size: 44),
-        ),
-      ),
-    );
-  }
 }

@@ -127,15 +127,20 @@ class FlashcardGeneratorService:
         owner_uid: str,
         *,
         note_id:   UUID | None = None,
+        document_id: UUID | None = None,
         raw_text:  str  | None = None,
         min_cards: int = 3,
         max_cards: int = 10,
         require_consent: bool = True,
-    ) -> list[Flashcard]:
+    ) -> tuple[list[Flashcard], str]:
         """Generate cards and persist them to the deck.
 
         Either ``note_id`` (looks up the user's note) or ``raw_text`` must be
-        provided.  Returns the list of newly created :class:`Flashcard` rows.
+        provided.  Returns the newly created :class:`Flashcard` rows and the
+        source that produced them (``"ai"`` or ``"rules"``).
+
+        Raises :class:`AIConsentRequiredError` when the LLM is configured but
+        the user has not granted AI consent (and ``require_consent`` is set).
         """
         # 1 — resolve the deck
         deck = self._db.get(FlashcardDeck, deck_id)
@@ -143,18 +148,14 @@ class FlashcardGeneratorService:
             raise ResourceNotFoundError("Flashcard deck not found.")
 
         # 2 — resolve the content
-        content = self._resolve_content(note_id, raw_text, owner_uid)
+        content = self._resolve_content(note_id, raw_text, owner_uid, document_id)
 
         # 3 — check AI consent when the LLM will be used
         ai_available = self._provider is not None
-        if ai_available and require_consent:
-            profile = self._db.get(LearningProfile, owner_uid)
-            consent_granted = getattr(profile, "ai_consent", None)
-            if not consent_granted:
-                # Fall back to rules rather than raising, so the user always
-                # gets something useful.
-                ai_available = False
-                logger.info("AI consent not granted for %s — using rules.", owner_uid)
+        if ai_available and require_consent and not self._has_consent(owner_uid):
+            raise AIConsentRequiredError(
+                "AI consent is required before generating flashcards with AI."
+            )
 
         # 4 — generate drafts
         source = "rules"
@@ -185,7 +186,6 @@ class FlashcardGeneratorService:
                 "course_id": deck.course_id,
                 "question":  draft["question"],
                 "answer":    draft["answer"],
-                "source":    source,
             })
             cards.append(card)
 
@@ -194,18 +194,35 @@ class FlashcardGeneratorService:
             deck.source = "ai_generated"
             self._db.commit()
 
-        return cards
+        return cards, source
 
     # ── private ──────────────────────────────────────────────────────────────
+
+    def _has_consent(self, owner_uid: str) -> bool:
+        # Même stockage que AIService.get_consent : preferences["ai_consent"].
+        profile = self._db.get(LearningProfile, owner_uid)
+        consent = ((profile.preferences if profile else None) or {}).get("ai_consent")
+        return isinstance(consent, dict) and consent.get("granted") is True
 
     def _resolve_content(
         self,
         note_id: UUID | None,
         raw_text: str | None,
         owner_uid: str,
+        document_id: UUID | None = None,
     ) -> str:
+        if document_id is not None:
+            # PDF de cours : texte extrait à l'envoi (document_chunks).
+            from app.core.config import get_settings
+            from app.services.document_service import DocumentService
+
+            settings = get_settings()
+            documents = DocumentService(
+                self._db, settings.documents_dir, settings.document_max_mb * 1024 * 1024
+            )
+            return documents.text_for(document_id, owner_uid, MAX_NOTE_CHARS)
         if note_id is not None:
-            from app.models.extended import Note
+            from app.models.note import Note
             note = self._db.get(Note, note_id)
             if note is None or note.owner_uid != owner_uid:
                 raise ResourceNotFoundError("Note not found.")

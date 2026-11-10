@@ -23,6 +23,12 @@ class StudyTask(Base):
         CheckConstraint(
             "priority IN ('low', 'medium', 'high')", name="ck_tasks_priority"
         ),
+        CheckConstraint(
+            "status IN ('pending', 'in_progress', 'completed')", name="ck_tasks_status"
+        ),
+        CheckConstraint(
+            "(status = 'completed') = is_completed", name="ck_tasks_status_completed"
+        ),
         Index("ix_tasks_owner_completed_deadline", "owner_uid", "is_completed", "deadline"),
         Index("ix_tasks_owner_course", "owner_uid", "course_id"),
         UniqueConstraint("owner_uid", "id", name="uq_tasks_owner_id"),
@@ -44,6 +50,10 @@ class StudyTask(Base):
     priority: Mapped[str] = mapped_column(String(10), default="medium")
     deadline: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     is_completed: Mapped[bool] = mapped_column(default=False)
+    # Toujours cohérent avec is_completed (contrainte ck_tasks_status_completed).
+    status: Mapped[str] = mapped_column(
+        String(16), default="pending", server_default="pending"
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

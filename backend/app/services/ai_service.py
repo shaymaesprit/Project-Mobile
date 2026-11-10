@@ -16,7 +16,7 @@ from typing import Protocol
 from uuid import UUID
 
 import httpx
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -437,3 +437,59 @@ class AIService:
         self._db.commit()
         self._db.refresh(insight)
         return insight
+
+
+# ─── Décomposition de tâche (Groq / LLM) ────────────────────────────────────
+
+BREAKDOWN_PROMPT = (
+    "Découpe la tâche d’étude suivante en 3 à 6 étapes concrètes et actionnables, "
+    "dans l’ordre où l’étudiant doit les faire. Chaque étape a un titre court "
+    "(moins de 80 caractères, verbe à l’infinitif) et une durée réaliste en minutes "
+    "(entre 10 et 120). Réponds UNIQUEMENT avec un objet JSON de la forme "
+    '{"steps":[{"title":str,"minutes":int}]}. Aucun texte hors du JSON.'
+)
+
+
+class _BreakdownStep(BaseModel):
+    title: str = Field(min_length=3, max_length=200)
+    minutes: int = Field(ge=5, le=240)
+
+
+class _BreakdownBatch(BaseModel):
+    steps: list[_BreakdownStep] = Field(min_length=2, max_length=8)
+
+
+def parse_breakdown(raw: str) -> list[dict]:
+    text = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip(), flags=re.IGNORECASE)
+    try:
+        batch = _BreakdownBatch.model_validate(json.loads(text))
+    except (json.JSONDecodeError, ValidationError) as error:
+        raise LLMError("invalid_breakdown") from error
+    return [step.model_dump() for step in batch.steps]
+
+
+def breakdown_task(service: "AIService", uid: str, title: str, description: str | None) -> list[dict]:
+    """Demande au LLM un plan d’action pour une tâche (consentement requis)."""
+    service._require_consent(uid)
+    if service._provider is None:
+        raise AIUnavailableError("L’assistant IA n’est pas configuré sur ce serveur.")
+    content = redact(f"Tâche : {title}\nDétails : {description or 'aucun'}", 1500)
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": BREAKDOWN_PROMPT + "\n\n" + content},
+    ]
+    raw = ""
+    for attempt in range(2):
+        try:
+            raw = service._provider.complete(messages, json_mode=True)
+            return parse_breakdown(raw)
+        except LLMError as error:
+            logger.warning("LLM breakdown failed (%s), attempt %d", error, attempt + 1)
+            messages = messages + [
+                {"role": "assistant", "content": raw[:2000]},
+                {"role": "user", "content": "JSON invalide. Renvoie uniquement "
+                 '{"steps":[{"title":str,"minutes":int}]}.'},
+            ]
+    raise AIUnavailableError(
+        "L’IA n’a pas pu découper cette tâche pour le moment. Réessaie plus tard."
+    )

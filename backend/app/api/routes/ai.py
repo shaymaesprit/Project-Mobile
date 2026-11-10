@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_current_uid
-from app.api.dependencies import get_ai_service, get_event_ai_service
+from app.api.dependencies import get_ai_service, get_event_ai_service, get_task_service
 from app.schemas.ai import (
     AIInsightResponse,
     AIRecommendationResponse,
@@ -15,7 +15,9 @@ from app.schemas.ai import (
     EventParseRequest,
 )
 from app.schemas.event import EventDraft
-from app.services.ai_service import AIService
+from app.schemas.planning import TaskBreakdownRequest, TaskBreakdownResponse
+from app.services.ai_service import AIService, breakdown_task
+from app.services.task_service import TaskService
 from app.services.event_ai_service import EventAIService
 
 router = APIRouter()
@@ -99,3 +101,29 @@ def parse_event(
         timezone_name=payload.timezone,
         utc_offset_minutes=payload.utc_offset_minutes,
     )
+
+
+@router.post("/tasks/{task_id}/breakdown", response_model=TaskBreakdownResponse)
+def breakdown(
+    task_id: UUID,
+    payload: TaskBreakdownRequest | None = None,
+    uid: str = Depends(get_current_uid),
+    service: AIService = Depends(get_ai_service),
+    tasks: TaskService = Depends(get_task_service),
+) -> dict:
+    """Découpe une tâche en étapes avec l’IA ; peut créer les sous-tâches."""
+    task = tasks.get_task(task_id, uid)
+    steps = breakdown_task(service, uid, task.title, task.description)
+    created: list = []
+    if payload is not None and payload.create_tasks:
+        for index, step in enumerate(steps, start=1):
+            created.append(
+                tasks.create_task(uid, {
+                    "title": f"{index}. {step['title']}"[:200],
+                    "description": f"Étape de « {task.title} » · ~{step['minutes']} min",
+                    "priority": task.priority,
+                    "deadline": task.deadline,
+                    "course_id": task.course_id,
+                }).id
+            )
+    return {"steps": steps, "created_task_ids": created}

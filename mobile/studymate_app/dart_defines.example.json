@@ -5,5 +5,8 @@
   "STUDYMATE_FIREBASE_SENDER_ID": "406992456210",
   "STUDYMATE_FIREBASE_STORAGE_BUCKET": "<bucket name from Firebase Console, e.g. studymate-8930d.firebasestorage.app>",
   "STUDYMATE_GOOGLE_SERVER_CLIENT_ID": "<OAuth Web client ID>",
-  "STUDYMATE_API_URL": "http://10.0.2.2:8000/api/v1"
+  "STUDYMATE_API_URL": "http://10.0.2.2:8000/api/v1",
+  "STUDYMATE_CLOUDINARY_CLOUD_NAME": "<Cloudinary cloud name>",
+  "STUDYMATE_CLOUDINARY_API_KEY": "<Cloudinary API key>",
+  "STUDYMATE_CLOUDINARY_API_SECRET": "<Cloudinary API secret>"
 }

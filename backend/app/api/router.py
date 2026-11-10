@@ -6,20 +6,24 @@ from app.api.routes import (
     calendar,
     courses,
     devices,
+    documents,
     evaluations,
     events,
     flashcard_decks,
     flashcards,
     health,
+    knowledge,
     ml,
     notes,
     notifications,
     places,
+    planning,
     profile,
     schedule,
     study_sessions,
     tasks,
     timetable,
+    timetable_shares,
     users,
 )
 
@@ -32,7 +36,12 @@ api_router.include_router(
 )
 api_router.include_router(profile.router, prefix="/profile", tags=["profile"])
 api_router.include_router(courses.router, prefix="/courses", tags=["courses"])
+api_router.include_router(
+    documents.course_documents_router, prefix="/courses", tags=["course documents"]
+)
+api_router.include_router(documents.router, prefix="/documents", tags=["course documents"])
 api_router.include_router(schedule.router, prefix="/schedule", tags=["schedule"])
+api_router.include_router(planning.router, prefix="/tasks", tags=["task planning"])
 api_router.include_router(tasks.router, prefix="/tasks", tags=["tasks"])
 api_router.include_router(notes.router, prefix="/notes", tags=["notes"])
 api_router.include_router(flashcards.router, prefix="/flashcards", tags=["flashcards"])
@@ -51,6 +60,10 @@ api_router.include_router(ai.router, prefix="/ai", tags=["ai assistant"])
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
 )
+api_router.include_router(
+    timetable_shares.router, prefix="/timetable", tags=["timetable sharing"]
+)
 api_router.include_router(timetable.router, prefix="/timetable", tags=["timetable"])
 api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
 api_router.include_router(places.router, prefix="/places", tags=["places"])
+api_router.include_router(knowledge.router, prefix="/knowledge", tags=["knowledge"])
