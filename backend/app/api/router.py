@@ -51,9 +51,6 @@ api_router.include_router(ai.router, prefix="/ai", tags=["ai assistant"])
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
 )
-<<<<<<< HEAD
 api_router.include_router(timetable.router, prefix="/timetable", tags=["timetable"])
-=======
 api_router.include_router(calendar.router, prefix="/calendar", tags=["calendar"])
 api_router.include_router(places.router, prefix="/places", tags=["places"])
->>>>>>> b7a7118cfc4af515b1ed0388a9eb6423ab592aa2

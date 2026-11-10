@@ -39,7 +39,6 @@ class AIUnavailableError(StudyMateError):
     code = "ai_unavailable"
 
 
-<<<<<<< HEAD
 class ShareExpiredError(StudyMateError):
     status_code = 410
     code = "share_expired"
@@ -53,7 +52,8 @@ class PermissionDeniedError(StudyMateError):
 class PayloadTooLargeError(StudyMateError):
     status_code = 413
     code = "payload_too_large"
-=======
+
+
 class EventScheduleConflictError(StudyMateError):
     status_code = 409
     code = "event_schedule_conflict"
@@ -62,4 +62,3 @@ class EventScheduleConflictError(StudyMateError):
 class PlacesUnavailableError(StudyMateError):
     status_code = 503
     code = "places_unavailable"
->>>>>>> b7a7118cfc4af515b1ed0388a9eb6423ab592aa2
