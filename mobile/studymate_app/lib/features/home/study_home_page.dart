@@ -45,8 +45,10 @@ class StudyHomePage extends StatefulWidget {
 class _StudyHomePageState extends State<StudyHomePage> {
   int _selectedIndex = 0;
   _TaskFilter _taskFilter = _TaskFilter.all;
-  late final EventsController _events =
-      EventsController(widget.controller.api);
+  late final EventsController _events = EventsController(
+    widget.controller.api,
+    userIdProvider: () => widget.user?.uid,
+  );
 
   bool get _isWide => MediaQuery.sizeOf(context).width >= 800;
 

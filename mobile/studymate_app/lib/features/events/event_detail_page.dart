@@ -45,7 +45,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
       _error = null;
     });
     try {
-      final event = await _api.getEvent(widget.eventId);
+      final event = await widget.events.getEvent(widget.eventId);
       if (mounted) setState(() => _event = event);
     } on StudyMateApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
@@ -97,6 +97,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
         force: true,
       );
       _changed = true;
+      await widget.events.cacheEvent(updated);
       if (mounted) setState(() => _event = updated);
     } on StudyMateApiException catch (error) {
       if (mounted) {
@@ -127,6 +128,7 @@ class _EventDetailPageState extends State<EventDetailPage> {
     if (confirmed != true) return;
     try {
       await _api.deleteEvent(widget.eventId);
+      await widget.events.forgetEvent(widget.eventId);
       if (mounted) Navigator.pop(context, true);
     } on StudyMateApiException catch (error) {
       if (mounted) {

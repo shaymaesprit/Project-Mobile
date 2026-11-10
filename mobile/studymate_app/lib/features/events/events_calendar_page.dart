@@ -132,6 +132,21 @@ class _EventsCalendarPageState extends State<EventsCalendarPage> {
     if (changed == true) _load();
   }
 
+  /// Recherche SQL (LIKE) dans la base locale, utilisable sans réseau.
+  Future<void> _search() async {
+    final picked = await showSearch<CalendarItem?>(
+      context: context,
+      delegate: _EventSearchDelegate(_events),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _focused = startOfDay(picked.startsAt);
+      _selected = _focused;
+    });
+    await _load();
+    if (mounted) _openDetail(picked);
+  }
+
   Future<void> _quickAdd() async {
     final draft = await showModalBottomSheet<EventDraft>(
       context: context,
@@ -160,6 +175,11 @@ class _EventsCalendarPageState extends State<EventsCalendarPage> {
       appBar: AppBar(
         title: const Text('Agenda'),
         actions: [
+          IconButton(
+            tooltip: 'Rechercher (hors ligne possible)',
+            onPressed: _search,
+            icon: const Icon(Icons.search_rounded),
+          ),
           IconButton(
             tooltip: 'Ajouter avec une phrase (IA)',
             onPressed: _quickAdd,
@@ -208,6 +228,8 @@ class _EventsCalendarPageState extends State<EventsCalendarPage> {
             ),
             _header(),
             if (_events.isLoading) const LinearProgressIndicator(minHeight: 2),
+            if (_events.isOffline)
+              OfflineBanner(lastSyncedAt: _events.lastSyncedAt),
             if (_events.errorMessage != null) _errorBanner(),
             Expanded(
               child: RefreshIndicator(
@@ -579,6 +601,76 @@ class _QuickAddSheetState extends State<_QuickAddSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+/// Délégué de recherche : interroge SQLite (titre, lieu, catégorie).
+class _EventSearchDelegate extends SearchDelegate<CalendarItem?> {
+  _EventSearchDelegate(this.events)
+      : super(searchFieldLabel: 'Rechercher un événement…');
+
+  final EventsController events;
+
+  @override
+  List<Widget> buildActions(BuildContext context) => [
+        if (query.isNotEmpty)
+          IconButton(
+            tooltip: 'Effacer',
+            onPressed: () => query = '',
+            icon: const Icon(Icons.clear_rounded),
+          ),
+      ];
+
+  @override
+  Widget buildLeading(BuildContext context) => IconButton(
+        tooltip: 'Retour',
+        onPressed: () => close(context, null),
+        icon: const Icon(Icons.arrow_back_rounded),
+      );
+
+  @override
+  Widget buildResults(BuildContext context) => _results();
+
+  @override
+  Widget buildSuggestions(BuildContext context) => _results();
+
+  Widget _results() {
+    if (query.trim().isEmpty) {
+      return const Center(child: Text('Tape un titre, un lieu ou un type.'));
+    }
+    return FutureBuilder<List<CalendarItem>>(
+      future: events.search(query),
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <CalendarItem>[];
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (items.isEmpty) {
+          return const Center(child: Text('Aucun résultat.'));
+        }
+        return ListView.separated(
+          itemCount: items.length,
+          separatorBuilder: (_, __) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return ListTile(
+              leading: Icon(item.isEvent
+                  ? Icons.event_rounded
+                  : item.kind == 'course'
+                      ? Icons.school_outlined
+                      : Icons.task_alt_rounded),
+              title: Text(item.title),
+              subtitle: Text(
+                '${item.kindLabel} · ${formatDateTime(item.startsAt)}'
+                '${item.location == null ? '' : ' · ${item.location}'}',
+              ),
+              onTap: () => close(context, item),
+            );
+          },
+        );
+      },
     );
   }
 }

@@ -328,9 +328,11 @@ class _EventFormPageState extends State<EventFormPage> {
         return;
       }
       if (_isEditing) {
-        await _api.updateEvent(candidate, force: true);
+        final saved = await _api.updateEvent(candidate, force: true);
+        await widget.events.cacheEvent(saved);
       } else {
-        await _api.createEvent(candidate, force: true);
+        final saved = await _api.createEvent(candidate, force: true);
+        await widget.events.cacheEvent(saved);
       }
       if (mounted) Navigator.pop(context, true);
     } on StudyMateApiException catch (error) {
@@ -364,6 +366,7 @@ class _EventFormPageState extends State<EventFormPage> {
     if (confirmed != true) return;
     try {
       await _api.deleteEvent(widget.event!.id);
+      await widget.events.forgetEvent(widget.event!.id);
       if (mounted) Navigator.pop(context, true);
     } on StudyMateApiException catch (error) {
       if (mounted) setState(() => _error = error.message);
